@@ -1,4 +1,4 @@
-# application/view/recruit_views.py
+# application/view/recruit.py
 import discord
 
 class JoinLeaveButtons(discord.ui.View):
@@ -37,16 +37,8 @@ class RefreshButton(discord.ui.Button):
                          custom_id="refresh")
 
     async def callback(self, it: discord.Interaction):
-        # このボタンは主にデバッグ/表示確認用で、Controllerのロジックを呼び出す必要はない
-        # 現状はrecruit_dataがController/Modelにあるため、ここから直接アクセスできない
-        # 簡易的な表示であればここで完結させるか、Controllerに処理を委譲する
-        # ここではController経由で全募集データを取得して表示する例（Ephemeralメッセージ）
-        # ※ このViewクラスはGDBotControllerに依存しないように注意
-        # 実際にはControllerのメソッドを呼び出す形になる
-        # 例: await self.controller.show_all_recruits_ephemeral(it)
-
-        # 簡略化のため、ここではDBから直接データを取得し表示します (本来はController経由)
-        from application.model.recruit_model import RecruitModel, Recruit
+        # 変更: モデルのインポートパス
+        from application.model.recruit import RecruitModel, Recruit
         recruit_model = RecruitModel()
         all_recruits_data = await recruit_model.get_all_recruits()
 
@@ -57,24 +49,14 @@ class RefreshButton(discord.ui.Button):
             participants_display = [f"<@{uid}>" for uid in r_data['participants']] if r_data['participants'] else []
 
             # Recruitクラスのblock()メソッドを呼び出すために一時的にRecruitオブジェクトを生成
-            # 本来はrecruit_modelから整形済みテキストを取得するか、別途Formatterクラスを用意
-            temp_recruit_obj = Recruit(
-                rid=r_data['id'],
-                date_s=r_data['date_s'],
-                place=r_data['place'],
-                cap=r_data['max_people'],
-                note=r_data['note'],
-                thread_id=r_data['thread_id'],
-                msg_id=r_data['msg_id'],
-                # participantsはMemberオブジェクトである必要があるため、ここでは表示しない
-                # または、display_nameではなくユーザーIDで表示するなどの工夫が必要
-                participants=[] # ここでは空にしておくか、user_idから名前を取得するロジックを別途用意
-            )
+            # RecruitクラスはModel層にあるため、ここではView用のデータ整形のみを行う
+            # Recruitクラスのis_full()はMemberオブジェクトを前提とするため、ここでは簡易的な判定を行う
+            is_full = len(r_data['participants']) >= r_data['max_people']
             
-            l1 = f"\U0001F4C5 {temp_recruit_obj.date}   \U0001F9D1 {len(r_data['participants'])}/{temp_recruit_obj.max_people}名"
-            l2 = f"{temp_recruit_obj.place}"
-            l3 = f"{temp_recruit_obj.note}" if temp_recruit_obj.note else ""
-            l4 = "\U0001F7E8 満員" if temp_recruit_obj.is_full() else "⬜ 募集中" # is_fullはparticipantsがMemberオブジェクトでないと正しく判定できない
+            l1 = f"\U0001F4C5 {r_data['date_s']}   \U0001F9D1 {len(r_data['participants'])}/{r_data['max_people']}名"
+            l2 = f"{r_data['place']}"
+            l3 = f"{r_data['note']}" if r_data['note'] else ""
+            l4 = "\U0001F7E8 満員" if is_full else "⬜ 募集中"
             l5 = "👥 参加者: " + (", ".join(participants_display) if participants_display else "なし")
             blocks.append(f"```\n{l1}\n{l2}\n{l3}\n{l4}\n{l5}\n```")
 

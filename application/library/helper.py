@@ -16,4 +16,6 @@ async def remove_thread_system_msg(ch: discord.TextChannel | discord.Thread):
                 print(f"⚠ システムメッセージの削除権限がありません: {m.id}")
             except discord.NotFound:
                 print(f"⚠ システムメッセージが見つかりません: {m.id}")
+            except Exception as e:
+                print(f"システムメッセージ削除中に予期せぬエラー ({m.id}): {e}")
             break # 最初のシステムメッセージを見つけたら終了
