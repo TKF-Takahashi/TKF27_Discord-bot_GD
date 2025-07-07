@@ -267,3 +267,6 @@ async def on_interaction(it: discord.Interaction):
 
     await send_recruit(bot.get_channel(CHANNEL_ID), rc)
     await ensure_header(bot.get_channel(CHANNEL_ID))
+
+
+bot.run(TOKEN)
