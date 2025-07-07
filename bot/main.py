@@ -4,7 +4,9 @@
 #   send_recruit() でスレッドボタンの直後に追加する
 
 import asyncio, re, discord
+import os
 from discord.ext import commands
+from dotenv import load_dotenv
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -17,7 +19,23 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 recruit_data: list["Recruit"] = []
 header_msg_id: int | None = None
 
-CHANNEL_ID = 1387050119719026698
+# .envファイルを読み込む
+load_dotenv()
+
+# 環境変数からDiscordボットトークンを取得
+TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+if TOKEN is None:
+    print("エラー: DISCORD_BOT_TOKEN 環境変数が設定されていません。")
+    exit(1)
+
+# 環境変数からCHANNEL_IDを取得し、int型に変換
+# チャンネルIDは数値なので、int() で変換しておく
+try:
+    CHANNEL_ID = int(os.getenv('CHANNEL_ID'))
+except (TypeError, ValueError):
+    print("エラー: CHANNEL_ID 環境変数が不正、または設定されていません。")
+    exit(1)
+
 TOPIC_TEXT = ("📌 **GD 練習チャンネル案内**\n"
               "・新規募集はボタンから作成してください。\n"
               "・各募集のボタンで参加/取り消しができます。")
