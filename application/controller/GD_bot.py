@@ -1,11 +1,12 @@
-# application/controller/gd_bot_controller.py
+# application/controller/GD_bot.py
 import discord
 import asyncio
 from discord.ext import commands
 
-from application.model.recruit_model import RecruitModel
-from application.view.recruit_views import HeaderView, JoinLeaveButtons
-from application.view.modal_views import RecruitModal
+# 変更: モデルとビューのインポートパス
+from application.model.recruit import RecruitModel, Recruit
+from application.view.recruit import HeaderView, JoinLeaveButtons
+from application.view.modal import RecruitModal
 from application.library.helpers import remove_thread_system_msg
 
 # GD 練習チャンネルのトピックテキスト
@@ -35,12 +36,16 @@ class GDBotController:
         if current_recruits and self.header_msg_id:
             try:
                 # 募集がある場合はヘッダーメッセージを削除
-                await (await ch.fetch_message(self.header_msg_id)).delete()
+                header_msg = await ch.fetch_message(self.header_msg_id)
+                await header_msg.delete()
                 self.header_msg_id = None
             except discord.NotFound:
                 self.header_msg_id = None # メッセージが見つからない場合はIDをリセット
+                print("⚠ ヘッダーメッセージが見つかりませんでしたが、IDをリセットしました。")
             except discord.Forbidden:
                 print("⚠ ヘッダーメッセージ削除権限がありません。")
+            except Exception as e:
+                print(f"ヘッダーメッセージ削除中に予期せぬエラー: {e}")
         elif not current_recruits and self.header_msg_id is None:
             # 募集がなく、ヘッダーメッセージもない場合は新規作成
             try:
@@ -48,6 +53,9 @@ class GDBotController:
                 self.header_msg_id = msg.id
             except discord.Forbidden:
                 print("⚠ ヘッダーメッセージ送信権限がありません。")
+            except Exception as e:
+                print(f"ヘッダーメッセージ送信中に予期せぬエラー: {e}")
+
 
     async def _send_or_update_recruit_message(self, ch: discord.TextChannel | discord.Thread, recruit_data: dict):
         """
@@ -55,29 +63,28 @@ class GDBotController:
         recruit_dataはRecruitModelから取得した辞書形式のデータ。
         """
         # RecruitModelから取得した辞書データをRecruitオブジェクトに変換
-        # もしRecruitクラスがrecruit_model.pyにあるなら、そこで変換処理を行う
-        from application.model.recruit_model import Recruit # Recruitクラスをインポート
+        # 参加者IDリストはMemberオブジェクトに変換する必要がある
+        participants_members: list[discord.Member] = []
+        guild = ch.guild
+        for user_id in recruit_data['participants']:
+            try:
+                member = await guild.fetch_member(user_id)
+                participants_members.append(member)
+            except discord.NotFound:
+                print(f"警告: 参加者ID {user_id} のメンバーが見つかりません。")
+            except Exception as e:
+                print(f"メンバー取得中に予期せぬエラー ({user_id}): {e}")
+
         rc = Recruit(
             rid=recruit_data['id'],
             date_s=recruit_data['date_s'],
             place=recruit_data['place'],
             cap=recruit_data['max_people'],
             note=recruit_data['note'],
-            thread_id=recruit_data['thread_id']
+            thread_id=recruit_data['thread_id'],
+            msg_id=recruit_data['msg_id'],
+            participants=participants_members
         )
-        # 参加者IDをMemberオブジェクトに変換（これはDiscord APIコールが必要なので注意）
-        # ここでは簡略化のため、参加者IDリストとして処理
-        # 本来はDBから参加者IDを取得し、guild.fetch_member等でMemberオブジェクトに変換する必要がある
-        guild = ch.guild
-        rc.participants = []
-        for user_id in recruit_data['participants']:
-            try:
-                member = await guild.fetch_member(user_id)
-                rc.participants.append(member)
-            except discord.NotFound:
-                print(f"参加者ID {user_id} のメンバーが見つかりません。")
-
-        rc.msg_id = recruit_data['msg_id'] # メッセージIDを設定
 
         content = rc.block() # Recruitクラスのblock()メソッドで表示テキストを生成
         view = JoinLeaveButtons(rc.id)
@@ -106,14 +113,24 @@ class GDBotController:
                 return
             except discord.NotFound:
                 # メッセージが見つからない場合は新規送信
-                pass
+                print(f"募集メッセージID {rc.msg_id} が見つかりません。新規送信します。")
+            except discord.Forbidden:
+                print(f"⚠ メッセージ編集権限がありません。メッセージID: {rc.msg_id}")
+            except Exception as e:
+                print(f"メッセージ編集中に予期せぬエラー ({rc.msg_id}): {e}")
 
         # 新規送信
-        msg = await ch.send(content, view=view)
-        # DBにメッセージIDを保存
-        await self.recruit_model.update_recruit_message_id(rc.id, msg.id)
-        rc.msg_id = msg.id # Recruitオブジェクトにも設定
-        await asyncio.sleep(0.5) # Discord APIのレートリミット対策
+        try:
+            msg = await ch.send(content, view=view)
+            # DBにメッセージIDを保存
+            await self.recruit_model.update_recruit_message_id(rc.id, msg.id)
+            rc.msg_id = msg.id # Recruitオブジェクトにも設定
+            await asyncio.sleep(0.5) # Discord APIのレートリミット対策
+        except discord.Forbidden:
+            print("⚠ メッセージ送信権限がありません。")
+        except Exception as e:
+            print(f"メッセージ送信中に予期せぬエラー: {e}")
+
 
     # ───────────────── BOT イベント ─────────────────
     async def on_ready(self):
@@ -128,6 +145,9 @@ class GDBotController:
             await ch.edit(topic=TOPIC_TEXT) # チャンネルトピックの更新
         except discord.Forbidden:
             print("⚠ チャンネルトピック設定権限がありません。")
+        except Exception as e:
+            print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
+
 
         # 既存の募集メッセージをすべて更新（起動時にDBからロードして表示を同期）
         all_recruits = await self.recruit_model.get_all_recruits()
@@ -146,6 +166,7 @@ class GDBotController:
 
         # 「募集を作成」ボタンがクリックされた場合
         if custom_id == "make":
+            # 変更: モーダルビューのインポートパスと、コントローラー自身を渡す
             await it.response.send_modal(RecruitModal(self)) # モーダルを表示
             return
         
@@ -175,28 +196,36 @@ class GDBotController:
                 await it.response.defer(thinking=False, ephemeral=True)
             except discord.HTTPException:
                 pass # 既に応答済みの場合など
+            except Exception as e:
+                print(f"インタラクション defer 中に予期せぬエラー: {e}")
 
         user_id = it.user.id
-        participants = recruit_data.get('participants', [])
+        participants = recruit_data.get('participants', []) # DBからはリストとして取得される
+
+        response_message = ""
 
         if action == "join":
             # 参加済みでない & 満員でない
             if user_id not in participants and len(participants) < recruit_data['max_people']:
                 participants.append(user_id)
-                await self.recruit_model.update_recruit_participants(recruit_id, participants)
-                await it.followup.send("参加予定に追加しました。", ephemeral=True)
+                response_message = "参加予定に追加しました。"
             elif user_id in participants:
-                await it.followup.send("あなたは既にこの募集に参加しています。", ephemeral=True)
+                response_message = "あなたは既にこの募集に参加しています。"
             elif len(participants) >= recruit_data['max_people']:
-                await it.followup.send("この募集は満員です。", ephemeral=True)
+                response_message = "この募集は満員です。"
         elif action == "leave":
             if user_id in participants:
                 participants.remove(user_id)
-                await self.recruit_model.update_recruit_participants(recruit_id, participants)
-                await it.followup.send("参加予定から削除しました。", ephemeral=True)
+                response_message = "参加予定から削除しました。"
             else:
-                await it.followup.send("あなたはまだこの募集に参加していません。", ephemeral=True)
+                response_message = "あなたはまだこの募集に参加していません。"
         
+        # 参加者リストが変更された場合のみDBを更新
+        if response_message in ["参加予定に追加しました。", "参加予定から削除しました。"]:
+            await self.recruit_model.update_recruit_participants(recruit_id, participants)
+        
+        await it.followup.send(response_message, ephemeral=True)
+
         # 参加者リストが更新されたので、メッセージを再更新
         updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
         channel = self.bot.get_channel(self.channel_id)
@@ -210,7 +239,7 @@ class GDBotController:
     async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict):
         """
         RecruitModalから募集データが送信された際の処理
-        モーダルからのコールバックなので、gd_bot_controllerが持つメソッドとして定義
+        モーダルからのコールバックなので、GDBotControllerが持つメソッドとして定義
         """
         ch = self.bot.get_channel(self.channel_id)
         if not isinstance(ch, (discord.TextChannel, discord.Thread)):
@@ -219,8 +248,15 @@ class GDBotController:
 
         # スレッドの作成
         thread_name = f"🗨 {data['date_s']} GD練習について"
-        th = await ch.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
-        await remove_thread_system_msg(ch) # システムメッセージ削除
+        try:
+            th = await ch.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
+            await remove_thread_system_msg(ch) # システムメッセージ削除
+        except discord.Forbidden:
+            await interaction.followup.send("エラー: スレッド作成権限がありません。", ephemeral=True)
+            return
+        except Exception as e:
+            await interaction.followup.send(f"エラー: スレッド作成中に問題が発生しました: {e}", ephemeral=True)
+            return
 
         # データベースに募集データを保存
         new_recruit_id = await self.recruit_model.add_recruit(
@@ -231,9 +267,16 @@ class GDBotController:
             thread_id=th.id
         )
 
+        if new_recruit_id is None:
+            await interaction.followup.send("エラー: 募集の保存に失敗しました。", ephemeral=True)
+            return
+
         # 保存した募集データを取得してメッセージを送信
         new_recruit_data = await self.recruit_model.get_recruit_by_id(new_recruit_id)
-        await self._send_or_update_recruit_message(ch, new_recruit_data)
-        
+        if new_recruit_data:
+            await self._send_or_update_recruit_message(ch, new_recruit_data)
+        else:
+            await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
+            
         await self._ensure_header(ch) # ヘッダーメッセージも更新
         await interaction.followup.send("募集が作成されました！", ephemeral=True)

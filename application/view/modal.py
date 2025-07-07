@@ -1,11 +1,12 @@
-# application/view/modal_views.py
+# application/view/modal.py
 import re
 import discord
 
+# 変更: コントローラーのインポートパス
 # GD_bot_controllerのインスタンスを保持するため、型ヒントを遅延評価
-# from application.controller.gd_bot_controller import GDBotController は循環参照になる可能性があるので注意
+# 循環参照を避けるため、直接インポートせず文字列として指定
 if False: # 実行時には評価されないようにダミーの条件
-    GDBotController = None # 型ヒントのためだけに定義
+    from application.controller.GD_bot import GDBotController # 型ヒントのためだけに定義
 
 class RecruitModal(discord.ui.Modal, title="GD練習 募集作成フォーム"):
     """募集作成のためのモーダルフォーム"""

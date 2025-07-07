@@ -3,11 +3,11 @@ import mysql.connector
 import os
 from dotenv import load_dotenv # 環境変数をここで読み込む
 
-# 環境変数をロード（必要に応じて、main.pyでもロードしているため重複する可能性あり）
+# 環境変数をロード
 load_dotenv()
 
 # MySQL接続情報
-# .envファイルからこれらの情報を取得するように変更します
+# .envファイルからこれらの情報を取得
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
@@ -31,7 +31,7 @@ class DatabaseManager:
             return conn
         except mysql.connector.Error as err:
             print(f"データベース接続エラー: {err}")
-            # エラー処理を適切に追加
+            # 本番環境では、ここで適切なロギングや再試行ロジックを追加
             raise err
 
     @staticmethod
@@ -44,6 +44,7 @@ class DatabaseManager:
 
             # participants はJSON文字列として保存するためTEXT型
             # MySQLのJSON型も利用可能ですが、ここでは互換性のためTEXTで扱います
+            # DiscordのIDは大きい数値になるため BIGINT を使用
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS recruits (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -54,8 +55,8 @@ class DatabaseManager:
                     thread_id BIGINT NOT NULL,
                     msg_id BIGINT,
                     participants TEXT DEFAULT '[]' -- JSON配列として保存
-                )
-            """)
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            """) # 日本語対応のため文字コード指定
             conn.commit()
             print(f"MySQLデータベース '{DB_NAME}' のテーブルが初期化されました。")
         except mysql.connector.Error as e:

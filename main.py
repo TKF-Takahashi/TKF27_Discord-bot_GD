@@ -4,7 +4,8 @@ import discord
 from dotenv import load_dotenv
 from discord.ext import commands
 
-from application.controller.gd_bot_controller import GDBotController
+# 変更: コントローラーのインポートパス
+from application.controller.GD_bot import GDBotController
 from application.model.database_manager import DatabaseManager # DB初期化用
 
 # .envファイルを読み込む
