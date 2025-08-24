@@ -2,7 +2,7 @@
 import json
 import discord # Recruitクラスでdiscord.Memberを使うため
 
-from application.model.database_manager import DatabaseManager
+from .database_manager import DatabaseManager
 
 class Recruit:
     """
