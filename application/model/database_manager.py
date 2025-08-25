@@ -1,7 +1,8 @@
 # application/model/database_manager.py
-import sqlite3 # 変更
+import sqlite3
 import os
 from dotenv import load_dotenv # 環境変数をここで読み込む
+from typing import Union # この行を追加
 
 # 環境変数をロード
 load_dotenv()
@@ -18,9 +19,9 @@ class DatabaseManager:
 	def _get_connection():
 		"""データベース接続を返す"""
 		try:
-			# 変更: sqlite3.connect はDBファイルへのパスを指定
+			# sqlite3.connect はDBファイルへのパスを指定
 			conn = sqlite3.connect(DB_NAME)
-			# 変更: 結果を辞書形式で受け取るための設定
+			# 結果を辞書形式で受け取るための設定
 			conn.row_factory = sqlite3.Row
 			return conn
 		except sqlite3.Error as err:
@@ -35,9 +36,7 @@ class DatabaseManager:
 			conn = DatabaseManager._get_connection()
 			cursor = conn.cursor()
 
-			# 変更: SQLite 用の CREATE TABLE 文
-			# AUTOINCREMENT, BIGINT は INTEGER で代替可能
-			# VARCHAR は TEXT で良い
+			# SQLite 用の CREATE TABLE 文
 			cursor.execute("""
 				CREATE TABLE IF NOT EXISTS recruits (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,13 +60,12 @@ class DatabaseManager:
 				conn.close()
 
 	@staticmethod
-	async def execute_query(query: str, params: tuple = ()) -> int | None:
+	async def execute_query(query: str, params: tuple = ()) -> Union[int, None]: # 変更
 		"""INSERT, UPDATE, DELETE クエリを実行し、lastrowid を返す"""
 		conn = None
 		try:
 			conn = DatabaseManager._get_connection()
 			cursor = conn.cursor()
-			# 変更: プレースホルダーを %s から ? に変更
 			cursor.execute(query, params)
 			conn.commit()
 			return cursor.lastrowid
@@ -81,16 +79,14 @@ class DatabaseManager:
 				conn.close()
 
 	@staticmethod
-	async def fetch_one(query: str, params: tuple = ()) -> dict | None:
+	async def fetch_one(query: str, params: tuple = ()) -> Union[dict, None]: # 変更
 		"""単一の結果を取得するクエリを実行し、辞書として返す"""
 		conn = None
 		try:
 			conn = DatabaseManager._get_connection()
 			cursor = conn.cursor()
-			# 変更: プレースホルダーを %s から ? に変更
 			cursor.execute(query, params)
 			row = cursor.fetchone()
-			# 変更: sqlite3.Row オブジェクトを dict に変換
 			return dict(row) if row else None
 		except sqlite3.Error as e:
 			print(f"SQLiteクエリ実行中にエラーが発生しました: {query} - {e}")
@@ -100,16 +96,14 @@ class DatabaseManager:
 				conn.close()
 
 	@staticmethod
-	async def fetch_all(query: str, params: tuple = ()) -> list[dict]:
+	async def fetch_all(query: str, params: tuple = ()) -> list[dict]: # list[dict] は変更不要
 		"""複数の結果を取得するクエリを実行し、辞書のリストとして返す"""
 		conn = None
 		try:
 			conn = DatabaseManager._get_connection()
 			cursor = conn.cursor()
-			# 変更: プレースホルダーを %s から ? に変更
 			cursor.execute(query, params)
 			rows = cursor.fetchall()
-			# 変更: sqlite3.Row オブジェクトのリストを dict のリストに変換
 			return [dict(row) for row in rows]
 		except sqlite3.Error as e:
 			print(f"SQLiteクエリ実行中にエラーが発生しました: {query} - {e}")
