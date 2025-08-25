@@ -8,7 +8,7 @@ from typing import Union # この行を追加
 from application.model.recruit import RecruitModel, Recruit
 from application.view.recruit import HeaderView, JoinLeaveButtons
 from application.view.modal import RecruitModal
-from application.library.helpers import remove_thread_system_msg
+from application.library.helper import remove_thread_system_msg
 
 # GD 練習チャンネルのトピックテキスト
 TOPIC_TEXT = ("📌 **GD 練習チャンネル案内**\n"
