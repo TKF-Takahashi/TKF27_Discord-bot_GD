@@ -225,7 +225,7 @@ class GDBotController:
 		if response_message in ["参加予定に追加しました。", "参加予定から削除しました。"]:
 			await self.recruit_model.update_recruit_participants(recruit_id, participants)
 		
-		#await it.followup.send(response_message, ephemeral=True)
+		await it.followup.send(response_message, ephemeral=True)
 
 		# 参加者リストが更新されたので、メッセージを再更新
 		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
@@ -244,7 +244,7 @@ class GDBotController:
 		"""
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
-			#await interaction.followup.send("エラー: チャンネルが見つからないか、不適切なタイプです。", ephemeral=True)
+			await interaction.followup.send("エラー: チャンネルが見つからないか、不適切なタイプです。", ephemeral=True)
 			return
 
 		# スレッドの作成
@@ -253,10 +253,10 @@ class GDBotController:
 			th = await ch.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
 			await remove_thread_system_msg(ch) # システムメッセージ削除
 		except discord.Forbidden:
-			#await interaction.followup.send("エラー: スレッド作成権限がありません。", ephemeral=True)
+			await interaction.followup.send("エラー: スレッド作成権限がありません。", ephemeral=True)
 			return
 		except Exception as e:
-			#await interaction.followup.send(f"エラー: スレッド作成中に問題が発生しました: {e}", ephemeral=True)
+			await interaction.followup.send(f"エラー: スレッド作成中に問題が発生しました: {e}", ephemeral=True)
 			return
 
 		# データベースに募集データを保存
@@ -269,15 +269,15 @@ class GDBotController:
 		)
 
 		if new_recruit_id is None:
-			#await interaction.followup.send("エラー: 募集の保存に失敗しました。", ephemeral=True)
+			await interaction.followup.send("エラー: 募集の保存に失敗しました。", ephemeral=True)
 			return
 
 		# 保存した募集データを取得してメッセージを送信
 		new_recruit_data = await self.recruit_model.get_recruit_by_id(new_recruit_id)
 		if new_recruit_data:
 			await self._send_or_update_recruit_message(ch, new_recruit_data)
-		#else:
-			#await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
+		else:
+			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch) # ヘッダーメッセージも更新
-		#await interaction.followup.send("募集が作成されました！", ephemeral=True)
+		await interaction.followup.send("募集が作成されました！", ephemeral=True)
