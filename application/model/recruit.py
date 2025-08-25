@@ -1,7 +1,6 @@
 # application/model/recruit.py
 import json
 import discord # Recruitクラスでdiscord.Memberを使うため
-
 from .database_manager import DatabaseManager
 
 class Recruit:
