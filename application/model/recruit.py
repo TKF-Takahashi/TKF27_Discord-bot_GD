@@ -39,59 +39,57 @@ class Recruit:
         return f"```\n{l1}\n{l2}\n{l3}\n{l4}\n{l5}\n```"
 
 class RecruitModel:
-    """
-    GD募集データに対するビジネスロジックとデータベース操作を管理するクラス。
-    """
-    def __init__(self):
-        pass # DatabaseManagerはstaticなのでインスタンスは不要
+	"""
+	GD募集データに対するビジネスロジックとデータベース操作を管理するクラス。
+	"""
+	def __init__(self):
+		pass # DatabaseManagerはstaticなのでインスタンスは不要
 
-    async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int) -> int | None:
-        """新しい募集をデータベースに追加する"""
-        query = """
-            INSERT INTO recruits (date_s, place, max_people, note, thread_id, participants)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        # participants は初期状態では空のJSON配列として保存
-        participants_json = json.dumps([])
-        recruit_id = await DatabaseManager.execute_query(
-            query, (date_s, place, max_people, note, thread_id, participants_json)
-        )
-        return recruit_id
+	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int) -> int | None:
+		"""新しい募集をデータベースに追加する"""
+		# 変更: プレースホルダーを ? に変更
+		query = """
+			INSERT INTO recruits (date_s, place, max_people, note, thread_id, participants)
+			VALUES (?, ?, ?, ?, ?, ?)
+		"""
+		participants_json = json.dumps([])
+		recruit_id = await DatabaseManager.execute_query(
+			query, (date_s, place, max_people, note, thread_id, participants_json)
+		)
+		return recruit_id
 
-    async def get_all_recruits(self) -> list[dict]:
-        """すべての募集データをデータベースから取得する"""
-        query = "SELECT * FROM recruits ORDER BY id ASC" # ID順で取得
-        rows = await DatabaseManager.fetch_all(query)
-        # 参加者リストはJSON文字列からPythonリストに変換
-        for row in rows:
-            # MySQLのTEXT型に保存されたJSONは、mysql.connectorで読み込むと文字列のままなので、
-            # ここで手動でjson.loads()する必要がある。
-            row['participants'] = json.loads(row['participants']) if row['participants'] else []
-        return rows
+	async def get_all_recruits(self) -> list[dict]:
+		"""すべての募集データをデータベースから取得する"""
+		query = "SELECT * FROM recruits ORDER BY id ASC"
+		rows = await DatabaseManager.fetch_all(query)
+		for row in rows:
+			row['participants'] = json.loads(row['participants']) if row['participants'] else []
+		return rows
 
-    async def get_recruit_by_id(self, recruit_id: int) -> dict | None:
-        """指定されたIDの募集データをデータベースから取得する"""
-        query = "SELECT * FROM recruits WHERE id = %s"
-        row = await DatabaseManager.fetch_one(query, (recruit_id,))
-        if row:
-            # 参加者リストはJSON文字列からPythonリストに変換
-            row['participants'] = json.loads(row['participants']) if row['participants'] else []
-        return row
+	async def get_recruit_by_id(self, recruit_id: int) -> dict | None:
+		"""指定されたIDの募集データをデータベースから取得する"""
+		# 変更: プレースホルダーを ? に変更
+		query = "SELECT * FROM recruits WHERE id = ?"
+		row = await DatabaseManager.fetch_one(query, (recruit_id,))
+		if row:
+			row['participants'] = json.loads(row['participants']) if row['participants'] else []
+		return row
 
-    async def update_recruit_participants(self, recruit_id: int, participants_list: list[int]):
-        """募集の参加者リストを更新する"""
-        participants_json = json.dumps(participants_list)
-        query = "UPDATE recruits SET participants = %s WHERE id = %s"
-        await DatabaseManager.execute_query(query, (participants_json, recruit_id))
+	async def update_recruit_participants(self, recruit_id: int, participants_list: list[int]):
+		"""募集の参加者リストを更新する"""
+		participants_json = json.dumps(participants_list)
+		# 変更: プレースホルダーを ? に変更
+		query = "UPDATE recruits SET participants = ? WHERE id = ?"
+		await DatabaseManager.execute_query(query, (participants_json, recruit_id))
 
-    async def update_recruit_message_id(self, recruit_id: int, message_id: int):
-        """募集メッセージのIDを更新する"""
-        query = "UPDATE recruits SET msg_id = %s WHERE id = %s"
-        await DatabaseManager.execute_query(query, (message_id, recruit_id))
+	async def update_recruit_message_id(self, recruit_id: int, message_id: int):
+		"""募集メッセージのIDを更新する"""
+		# 変更: プレースホルダーを ? に変更
+		query = "UPDATE recruits SET msg_id = ? WHERE id = ?"
+		await DatabaseManager.execute_query(query, (message_id, recruit_id))
 
-    async def delete_recruit(self, recruit_id: int):
-        """指定されたIDの募集を削除する"""
-        query = "DELETE FROM recruits WHERE id = %s"
-        await DatabaseManager.execute_query(query, (recruit_id,))
-
-    # その他のCRUD操作（募集情報の編集など）もここに追加可能
+	async def delete_recruit(self, recruit_id: int):
+		"""指定されたIDの募集を削除する"""
+		# 変更: プレースホルダーを ? に変更
+		query = "DELETE FROM recruits WHERE id = ?"
+		await DatabaseManager.execute_query(query, (recruit_id,))
