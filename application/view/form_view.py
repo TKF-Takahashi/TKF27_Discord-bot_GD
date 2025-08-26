@@ -12,19 +12,11 @@ class HourSelect(discord.ui.Select):
 		super().__init__(placeholder="時を選択...", options=options)
 
 	async def callback(self, interaction: discord.Interaction):
-		# [変更] 選択状態を維持するロジックを追加
 		selected_hour = self.values[0]
 		self.view.values["time_hour"] = selected_hour
 
-		# 全ての選択肢を非選択状態にする
 		for option in self.options:
-			option.default = False
-
-		# 今回選択されたものだけを選択状態にする
-		for option in self.options:
-			if option.value == selected_hour:
-				option.default = True
-				break
+			option.default = option.value == selected_hour
 		
 		await self.view.update_message(interaction)
 
@@ -34,19 +26,11 @@ class MinuteSelect(discord.ui.Select):
 		super().__init__(placeholder="分を選択...", options=options)
 	
 	async def callback(self, interaction: discord.Interaction):
-		# [変更] 選択状態を維持するロジックを追加
 		selected_minute = self.values[0]
 		self.view.values["time_minute"] = selected_minute
 
-		# 全ての選択肢を非選択状態にする
 		for option in self.options:
-			option.default = False
-
-		# 今回選択されたものだけを選択状態にする
-		for option in self.options:
-			if option.value == selected_minute:
-				option.default = True
-				break
+			option.default = option.value == selected_minute
 
 		await self.view.update_message(interaction)
 
@@ -85,11 +69,22 @@ class RecruitFormView(discord.ui.View):
 		return embed
 
 	async def update_message(self, interaction: discord.Interaction):
-		required_filled = all(self.values[key] != "未設定" for key in ["date", "time_hour", "time_minute", "place", "capacity"])
-		for item in self.children:
-			if isinstance(item, discord.ui.Button) and item.custom_id == "create_recruit":
-				item.disabled = not required_filled
-				break
+		# [変更] ボタンの有効/無効状態を更新するロジックを修正
+		if self.is_selecting_time:
+			# 時刻選択画面の場合、「時間を登録」ボタンの状態を更新
+			time_filled = all(self.values[key] != "未設定" for key in ["time_hour", "time_minute"])
+			for item in self.children:
+				if isinstance(item, discord.ui.Button) and item.custom_id == "confirm_time":
+					item.disabled = not time_filled
+					break
+		else:
+			# メインフォーム画面の場合、「募集を作成」ボタンの状態を更新
+			required_filled = all(self.values[key] != "未設定" for key in ["date", "time_hour", "time_minute", "place", "capacity"])
+			for item in self.children:
+				if isinstance(item, discord.ui.Button) and item.custom_id == "create_recruit":
+					item.disabled = not required_filled
+					break
+		
 		embed = self.create_embed()
 		if interaction.response.is_done():
 			await interaction.followup.edit_message(embed=embed, view=self, message_id=interaction.message.id)
@@ -102,6 +97,8 @@ class RecruitFormView(discord.ui.View):
 		self.add_item(HourSelect())
 		self.add_item(MinuteSelect())
 		self.add_item(discord.ui.Button(label="↩️ 日付を再入力", style=discord.ButtonStyle.grey, custom_id="reset_date"))
+		# [追加] 「時間を登録」ボタンを新規追加
+		self.add_item(discord.ui.Button(label="✅ 時間を登録", style=discord.ButtonStyle.success, custom_id="confirm_time", disabled=True))
 		await self.update_message(interaction)
 	
 	async def interaction_check(self, interaction: discord.Interaction):
@@ -137,7 +134,8 @@ class RecruitFormView(discord.ui.View):
 				'note': self.values['note'] if self.values['note'] != "未設定" else ""
 			})
 			self.stop()
-		elif custom_id == "reset_date":
+		# [変更] 「日付を再入力」と「時間を登録」ボタンは、どちらもメインフォーム画面に戻る
+		elif custom_id == "reset_date" or custom_id == "confirm_time":
 			self.is_selecting_time = False
 			self.add_main_buttons()
 			await self.update_message(interaction)
