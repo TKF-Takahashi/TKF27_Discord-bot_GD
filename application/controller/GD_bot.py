@@ -5,10 +5,9 @@ from typing import Union
 from datetime import datetime
 import pytz
 
-# 変更: モデルとビューのインポートパス
+# 実際のプロジェクト構造に合わせてインポートパスを修正してください
 from application.model.recruit import RecruitModel, Recruit
 from application.view.recruit import HeaderView, JoinLeaveButtons
-# [変更] 不要になったRecruitModalのインポートを削除
 from application.view.form_view import RecruitFormView
 from application.library.helper import remove_thread_system_msg
 
@@ -94,10 +93,10 @@ class GDBotController:
 				url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
 			)
 		)
-		# [削除] 「新たな募集を追加」ボタンの追加処理を削除
 		view.add_item(
 			discord.ui.Button(
-				label="test",
+				# [変更] ボタンの表記を「test」から変更
+				label="新たな募集を追加",
 				style=discord.ButtonStyle.primary,
 				custom_id="test"
 			)
@@ -156,7 +155,6 @@ class GDBotController:
 
 		custom_id = it.data.get("custom_id")
 		
-		# [削除] custom_id == "make" の処理ブロックを削除
 		if custom_id == "test":
 			form_view = RecruitFormView(self)
 			embed = form_view.create_embed()
@@ -255,11 +253,10 @@ class GDBotController:
 
 	async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict):
 		"""
-		RecruitModalから募集データが送信された際の処理
+		募集データが送信された際の処理 (新しいフォームから呼び出される)
 		"""
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
-			# is_done() のチェックを追加
 			if not interaction.response.is_done():
 				await interaction.response.send_message("エラー: チャンネルが見つからないか、不適切なタイプです。", ephemeral=True)
 			else:
@@ -296,4 +293,5 @@ class GDBotController:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch)
-		await interaction.followup.send("募集が作成されました！", ephemeral=True)
+		# 元のインタラクションはフォームのボタン操作なので、ここでは通知済み
+		# 必要であればここで followup.send を使う
