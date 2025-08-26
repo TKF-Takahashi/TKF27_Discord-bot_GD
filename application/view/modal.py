@@ -80,3 +80,55 @@ class TextInputModal(discord.ui.Modal):
 	async def on_submit(self, interaction: discord.Interaction):
 		self.parent_view.values[self.key] = self.text_input.value
 		await self.parent_view.update_message(interaction)
+
+# [新規追加] 新しい日時入力用モーダル
+class DateTimeModal(discord.ui.Modal, title="日時入力"):
+	def __init__(self, parent_view: 'RecruitFormView'):
+		super().__init__()
+		self.parent_view = parent_view
+
+	md_input = discord.ui.TextInput(
+		label="月/日 (MM/DD形式)",
+		placeholder="例: 8/26",
+		required=True,
+		max_length=5
+	)
+	hm_input = discord.ui.TextInput(
+		label="時刻 (HH:MM形式)",
+		placeholder="例: 19:00",
+		required=True,
+		max_length=5
+	)
+
+	async def on_submit(self, interaction: discord.Interaction):
+		# 入力値のパースとバリデーション
+		try:
+			month_str, day_str = self.md_input.value.split('/')
+			hour_str, minute_str = self.hm_input.value.split(':')
+			
+			month, day = int(month_str), int(day_str)
+			hour, minute = int(hour_str), int(minute_str)
+			
+			# 日付・時刻の範囲チェック
+			if not (1 <= month <= 12 and 1 <= day <= 31 and 0 <= hour <= 23 and 0 <= minute <= 59):
+				raise ValueError("Date or time out of range")
+
+			now = datetime.now()
+			year = now.year
+			
+			# 指定された日付が現在の日付より過去の場合、年を1つ進める
+			# (例: 現在が12月で、入力が1月の場合)
+			event_dt_this_year = datetime(year, month, day)
+			if event_dt_this_year < now:
+				year += 1
+
+		except (ValueError, TypeError):
+			await interaction.response.send_message("日付または時刻の形式が正しくありません。(例: 8/26, 19:00)", ephemeral=True)
+			return
+		
+		# 親Viewの値を更新
+		self.parent_view.values["date"] = f"{year}/{month:02}/{day:02}"
+		self.parent_view.values["time"] = f"{hour:02}:{minute:02}"
+		
+		# フォームの表示を更新
+		await self.parent_view.update_message(interaction)
