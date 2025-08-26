@@ -12,7 +12,20 @@ class HourSelect(discord.ui.Select):
 		super().__init__(placeholder="時を選択...", options=options)
 
 	async def callback(self, interaction: discord.Interaction):
-		self.view.values["time_hour"] = self.values[0]
+		# [変更] 選択状態を維持するロジックを追加
+		selected_hour = self.values[0]
+		self.view.values["time_hour"] = selected_hour
+
+		# 全ての選択肢を非選択状態にする
+		for option in self.options:
+			option.default = False
+
+		# 今回選択されたものだけを選択状態にする
+		for option in self.options:
+			if option.value == selected_hour:
+				option.default = True
+				break
+		
 		await self.view.update_message(interaction)
 
 class MinuteSelect(discord.ui.Select):
@@ -21,14 +34,27 @@ class MinuteSelect(discord.ui.Select):
 		super().__init__(placeholder="分を選択...", options=options)
 	
 	async def callback(self, interaction: discord.Interaction):
-		self.view.values["time_minute"] = self.values[0]
+		# [変更] 選択状態を維持するロジックを追加
+		selected_minute = self.values[0]
+		self.view.values["time_minute"] = selected_minute
+
+		# 全ての選択肢を非選択状態にする
+		for option in self.options:
+			option.default = False
+
+		# 今回選択されたものだけを選択状態にする
+		for option in self.options:
+			if option.value == selected_minute:
+				option.default = True
+				break
+
 		await self.view.update_message(interaction)
 
 class RecruitFormView(discord.ui.View):
 	def __init__(self, controller: 'GDBotController'):
 		super().__init__(timeout=600)
 		self.controller = controller
-		self.is_selecting_time = False # 時刻選択中かどうかのフラグ
+		self.is_selecting_time = False
 		self.values = {
 			"date": "未設定",
 			"time_hour": "未設定",
@@ -78,9 +104,7 @@ class RecruitFormView(discord.ui.View):
 		self.add_item(discord.ui.Button(label="↩️ 日付を再入力", style=discord.ButtonStyle.grey, custom_id="reset_date"))
 		await self.update_message(interaction)
 	
-	# on_interactionでボタンのcustom_idに応じて処理を振り分ける
 	async def interaction_check(self, interaction: discord.Interaction):
-		# ユーザーが操作したコンポーネントのcustom_idを取得
 		custom_id = interaction.data.get("custom_id")
 
 		if custom_id == "set_date":
@@ -103,7 +127,7 @@ class RecruitFormView(discord.ui.View):
 				if cap_int <= 0: raise ValueError
 			except (ValueError, TypeError):
 				await interaction.response.send_message("日時または定員の形式が正しくありません。入力し直してください。", ephemeral=True)
-				return True # return True to stop further processing
+				return True
 
 			await interaction.response.edit_message(content="募集を作成しています...", embed=None, view=None)
 			await self.controller.handle_recruit_submission(interaction, {
@@ -118,4 +142,4 @@ class RecruitFormView(discord.ui.View):
 			self.add_main_buttons()
 			await self.update_message(interaction)
 
-		return True # interaction_checkで処理したのでTrueを返す
+		return True
