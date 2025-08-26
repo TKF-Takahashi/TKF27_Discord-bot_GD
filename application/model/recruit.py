@@ -8,7 +8,9 @@ class Recruit:
 	"""
 	GD募集の情報を保持するデータクラス。
 	"""
+	# [変更] author引数を追加
 	def __init__(self, rid: int, date_s: str, place: str, cap: int, note: str, thread_id: int,
+				 author: Union[discord.Member, None],
 				 msg_id: Union[int, None] = None, participants: Union[list[discord.Member], None] = None):
 		self.id = rid
 		self.date = date_s
@@ -18,6 +20,7 @@ class Recruit:
 		self.participants: list[discord.Member] = participants if participants is not None else []
 		self.thread_id = thread_id
 		self.msg_id = msg_id
+		self.author = author # [追加]
 
 	def is_full(self) -> bool:
 		return len(self.participants) >= self.max_people
@@ -27,13 +30,10 @@ class Recruit:
 
 	def block(self) -> str:
 		"""募集情報を整形して表示用の文字列を生成する"""
-		# --- 1. スロット絵文字の生成 ---
 		filled_slots = len(self.participants)
 		empty_slots = self.max_people - filled_slots
-		# 指示: 参加者の数だけ🧑、空き人数の数だけ・を表示
 		slot_emojis = '🧑' * filled_slots + '・' * empty_slots
 
-		# --- 2. 備考欄の解析 ---
 		note_message = ""
 		mentor_on = False
 		industry = ""
@@ -49,10 +49,14 @@ class Recruit:
 					remaining_parts.append(part)
 			note_message = " ".join(remaining_parts)
 
-		# --- 3. 各行の組み立て ---
 		lines = []
 		lines.append(f"📅 {self.date}   {filled_slots}/{self.max_people}名 {slot_emojis}")
 		lines.append("-----------------------------")
+		# [追加] 募集者情報を表示
+		if self.author:
+			lines.append(f"[募集者]  {self.author.display_name}")
+		else:
+			lines.append(f"[募集者]  不明なユーザー")
 		lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
 		lines.append("-----------------------------")
 		
@@ -76,15 +80,17 @@ class RecruitModel:
 	def __init__(self):
 		pass
 
-	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int) -> Union[int, None]:
+	# [変更] author_id引数を追加
+	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int, author_id: int) -> Union[int, None]:
 		"""新しい募集をデータベースに追加する"""
+		# [変更] author_idをINSERT文に追加
 		query = """
-			INSERT INTO recruits (date_s, place, max_people, note, thread_id, participants)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO recruits (date_s, place, max_people, note, thread_id, participants, author_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 		"""
 		participants_json = json.dumps([])
 		recruit_id = await DatabaseManager.execute_query(
-			query, (date_s, place, max_people, note, thread_id, participants_json)
+			query, (date_s, place, max_people, note, thread_id, participants_json, author_id)
 		)
 		return recruit_id
 

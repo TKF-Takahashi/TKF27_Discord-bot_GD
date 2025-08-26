@@ -27,7 +27,6 @@ class GDBotController:
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
 
-		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
 
@@ -72,6 +71,14 @@ class GDBotController:
 			except Exception as e:
 				print(f"メンバー取得中に予期せぬエラー ({user_id}): {e}")
 
+		# [追加] 募集者のメンバー情報を取得
+		author_member = None
+		if recruit_data.get('author_id'):
+			try:
+				author_member = await guild.fetch_member(recruit_data['author_id'])
+			except discord.NotFound:
+				print(f"警告: 募集者ID {recruit_data['author_id']} のメンバーが見つかりません。")
+
 		rc = Recruit(
 			rid=recruit_data['id'],
 			date_s=recruit_data['date_s'],
@@ -80,7 +87,8 @@ class GDBotController:
 			note=recruit_data['note'],
 			thread_id=recruit_data['thread_id'],
 			msg_id=recruit_data['msg_id'],
-			participants=participants_members
+			participants=participants_members,
+			author=author_member # [追加] 募集者情報を渡す
 		)
 
 		content = rc.block()
@@ -95,7 +103,6 @@ class GDBotController:
 		)
 		view.add_item(
 			discord.ui.Button(
-				# [変更] ボタンの表記を「test」から変更
 				label="新たな募集を追加",
 				style=discord.ButtonStyle.primary,
 				custom_id="test"
@@ -274,12 +281,16 @@ class GDBotController:
 			await interaction.followup.send(f"エラー: スレッド作成中に問題が発生しました: {e}", ephemeral=True)
 			return
 
+		# [追加] 募集者IDを取得
+		author_id = interaction.user.id
+
 		new_recruit_id = await self.recruit_model.add_recruit(
 			date_s=data['date_s'],
 			place=data['place'],
 			max_people=data['max_people'],
 			note=data['note'],
-			thread_id=th.id
+			thread_id=th.id,
+			author_id=author_id # [追加] 募集者IDを渡す
 		)
 
 		if new_recruit_id is None:
@@ -293,5 +304,3 @@ class GDBotController:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch)
-		# 元のインタラクションはフォームのボタン操作なので、ここでは通知済み
-		# 必要であればここで followup.send を使う
