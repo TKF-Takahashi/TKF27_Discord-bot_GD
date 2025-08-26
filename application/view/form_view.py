@@ -51,11 +51,13 @@ class RecruitFormView(discord.ui.View):
 
 	def add_main_buttons(self):
 		self.clear_items()
+		# [変更] 4つの設定ボタンをすべて row=0 に配置
 		self.add_item(discord.ui.Button(label="📅 日付設定", style=discord.ButtonStyle.secondary, custom_id="set_date", row=0))
-		self.add_item(discord.ui.Button(label="📍 場所設定", style=discord.ButtonStyle.secondary, custom_id="set_place", row=1))
-		self.add_item(discord.ui.Button(label="👥 定員設定", style=discord.ButtonStyle.secondary, custom_id="set_capacity", row=1))
-		self.add_item(discord.ui.Button(label="📝 備考設定", style=discord.ButtonStyle.secondary, custom_id="set_note", row=1))
-		self.add_item(discord.ui.Button(label="✅ 募集を作成", style=discord.ButtonStyle.success, custom_id="create_recruit", row=2, disabled=True))
+		self.add_item(discord.ui.Button(label="📍 場所設定", style=discord.ButtonStyle.secondary, custom_id="set_place", row=0))
+		self.add_item(discord.ui.Button(label="👥 定員設定", style=discord.ButtonStyle.secondary, custom_id="set_capacity", row=0))
+		self.add_item(discord.ui.Button(label="📝 備考設定", style=discord.ButtonStyle.secondary, custom_id="set_note", row=0))
+		# [変更] 「募集を作成」ボタンを row=1 に配置
+		self.add_item(discord.ui.Button(label="✅ 募集を作成", style=discord.ButtonStyle.success, custom_id="create_recruit", row=1, disabled=True))
 
 	def create_embed(self):
 		embed = discord.Embed(title="募集作成フォーム", description="下のボタンを押して各項目を入力してください。")
@@ -130,12 +132,9 @@ class RecruitFormView(discord.ui.View):
 				'note': self.values['note'] if self.values['note'] != "未設定" else ""
 			})
 			self.stop()
-		# [変更] 「日付を再入力」ボタンの処理を分離
 		elif custom_id == "reset_date":
-			# 日付入力モーダルを再度呼び出す
 			modal = DateInputModal(parent_view=self)
 			await interaction.response.send_modal(modal)
-		# [変更] 「時間を登録」ボタンはメインフォーム画面に戻る
 		elif custom_id == "confirm_time":
 			self.is_selecting_time = False
 			self.add_main_buttons()
