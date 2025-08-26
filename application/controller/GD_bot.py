@@ -107,6 +107,13 @@ class GDBotController:
 				custom_id="make"
 			)
 		)
+		view.add_item(
+			discord.ui.Button(
+				label="test",
+				style=discord.ButtonStyle.primary,
+				custom_id="test"
+			)
+		)
 
 		if rc.msg_id:
 			try:
@@ -170,10 +177,10 @@ class GDBotController:
 		if custom_id == "make":
 			# 変更: モーダルビューのインポートパスと、コントローラー自身を渡す
 			await it.response.send_modal(RecruitModal(self)) # モーダルを表示
-			return
+			return	
 
-		# 「最新状況を反映」ボタンはView内で完結するため、ここでは処理しない
-		if custom_id == "refresh":
+		if custom_id == "test":
+			# (ここに機能追加を行ってください。)
 			return
 
 		if ":" not in custom_id:
