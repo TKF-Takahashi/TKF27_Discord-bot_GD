@@ -1,5 +1,5 @@
 import json
-import discord # Recruitクラスでdiscord.Memberを使うため
+import discord
 from typing import Union
 
 from .database_manager import DatabaseManager
@@ -25,14 +25,10 @@ class Recruit:
 	def is_joined(self, u: discord.Member) -> bool:
 		return u and any(p.id == u.id for p in self.participants)
 
-	# [変更] 表示形式をご指定のレイアウトに修正
 	def block(self) -> str:
 		"""募集情報を整形して表示用の文字列を生成する"""
-		# --- 1. スロット絵文字の生成 ---
-		filled_slots = len(self.participants)
-		empty_slots = self.max_people - filled_slots
-		# 参加済みのスロットを青丸、空きスロットを白丸で表現
-		slot_emojis = '🔵' * filled_slots + '⚪' * empty_slots
+		# [変更] 1. スロットの絵文字を「・」に変更
+		slot_emojis = '・' * self.max_people
 
 		# --- 2. 備考欄の解析 ---
 		note_message = ""
@@ -52,14 +48,16 @@ class Recruit:
 
 		# --- 3. 各行の組み立て ---
 		lines = []
-		lines.append(f"📅 {self.date}   {filled_slots}/{self.max_people}名 🧑{slot_emojis}")
+		lines.append(f"📅 {self.date}   {len(self.participants)}/{self.max_people}名 🧑{slot_emojis}")
 		lines.append("-----------------------------")
 		lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
 		lines.append("-----------------------------")
+		
+		# [変更] 2. メンター希望と想定業界の行に絵文字を追加
 		if mentor_on:
-			lines.append("●メンター希望：ON")
+			lines.append("🤝メンター希望：ON")
 		if industry:
-			lines.append(f"●想定業界: {industry}")
+			lines.append(f"🏢想定業界: {industry}")
 		
 		lines.append("🟡 満員" if self.is_full() else "⬜ 募集中")
 		
@@ -74,7 +72,7 @@ class RecruitModel:
 	GD募集データに対するビジネスロジックとデータベース操作を管理するクラス。
 	"""
 	def __init__(self):
-		pass # DatabaseManagerはstaticなのでインスタンスは不要
+		pass
 
 	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int) -> Union[int, None]:
 		"""新しい募集をデータベースに追加する"""
