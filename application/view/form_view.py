@@ -34,7 +34,6 @@ class MinuteSelect(discord.ui.Select):
 
 		await self.view.update_message(interaction)
 
-# [新規追加] 想定業界を選択するセレクトメニュー
 class IndustrySelect(discord.ui.Select):
 	def __init__(self):
 		options = [
@@ -47,21 +46,32 @@ class IndustrySelect(discord.ui.Select):
 		self.view.values["industry"] = self.values[0]
 		await self.view.update_message(interaction)
 
+# [追加] 削除されてしまっていたCapacitySelectクラスを再定義
+class CapacitySelect(discord.ui.Select):
+	def __init__(self):
+		options = [discord.SelectOption(label=f"{i}人", value=str(i)) for i in range(3, 11)]
+		super().__init__(placeholder="定員を選択...", options=options)
+	
+	async def callback(self, interaction: discord.Interaction):
+		self.view.values["capacity"] = self.values[0]
+		# メインフォームの画面に戻る
+		self.view.add_main_buttons()
+		await self.view.update_message(interaction)
 
 class RecruitFormView(discord.ui.View):
 	def __init__(self, controller: 'GDBotController'):
 		super().__init__(timeout=600)
 		self.controller = controller
-		self.current_screen = "main" # 現在の画面を管理するフラグ
+		self.current_screen = "main"
 		self.values = {
 			"date": "未設定",
 			"time_hour": "未設定",
 			"time_minute": "未設定",
 			"place": "未設定",
 			"capacity": "未設定",
-			"note_message": "未設定", # [変更] noteを分割
-			"mentor_needed": False,      # [追加] メンター有無
-			"industry": "未設定"         # [追加] 想定業界
+			"note_message": "未設定",
+			"mentor_needed": False,
+			"industry": "未設定"
 		}
 		self.add_main_buttons()
 
@@ -74,7 +84,6 @@ class RecruitFormView(discord.ui.View):
 		self.add_item(discord.ui.Button(label="📝 備考設定", style=discord.ButtonStyle.secondary, custom_id="set_note", row=0))
 		self.add_item(discord.ui.Button(label="✅ 募集を作成", style=discord.ButtonStyle.success, custom_id="create_recruit", row=1, disabled=True))
 
-	# [新規追加] 備考設定画面のボタンを追加するメソッド
 	def add_note_buttons(self):
 		self.clear_items()
 		self.current_screen = "note"
@@ -95,13 +104,12 @@ class RecruitFormView(discord.ui.View):
 			embed.add_field(name="✉️ メッセージ", value=self.values['note_message'], inline=False)
 			embed.add_field(name="🤝 メンター有無", value="呼ぶ" if self.values['mentor_needed'] else "呼ばない", inline=False)
 			embed.add_field(name="🏢 想定業界", value=self.values['industry'], inline=False)
-		else: # main screen
+		else:
 			embed.description = "下のボタンを押して各項目を入力してください。"
 			datetime_val = f"{self.values['date']} {self.values['time_hour']}:{self.values['time_minute']}"
 			if "未設定" in datetime_val:
 				datetime_val = "未設定"
 			
-			# [変更] noteの表示を結合
 			note_parts = []
 			if self.values['note_message'] != "未設定": note_parts.append(self.values['note_message'])
 			if self.values['mentor_needed']: note_parts.append("メンター希望")
@@ -152,13 +160,13 @@ class RecruitFormView(discord.ui.View):
 		elif custom_id == "set_place":
 			modal = TextInputModal(title="場所の入力", label="開催場所 (Zoomなど)", style=discord.TextStyle.short, parent_view=self, key="place", default=self.values["place"])
 			await interaction.response.send_modal(modal)
+		# [変更] 定員設定ボタンの処理を再追加
 		elif custom_id == "set_capacity":
 			self.current_screen = "capacity"
 			self.clear_items()
 			self.add_item(CapacitySelect())
 			self.add_item(discord.ui.Button(label="↩️ フォームに戻る", style=discord.ButtonStyle.grey, custom_id="back_to_main_form"))
 			await interaction.response.edit_message(view=self)
-		# [変更] 備考設定ボタンの処理
 		elif custom_id == "set_note":
 			self.add_note_buttons()
 			await self.update_message(interaction)
@@ -169,7 +177,6 @@ class RecruitFormView(discord.ui.View):
 				cap_int = int(self.values['capacity'])
 				if cap_int <= 0: raise ValueError
 				
-				# [変更] noteの値を結合して渡す
 				note_parts = []
 				if self.values['note_message'] != "未設定": note_parts.append(self.values['note_message'])
 				if self.values['mentor_needed']: note_parts.append("メンター希望")
@@ -194,13 +201,12 @@ class RecruitFormView(discord.ui.View):
 		elif custom_id == "confirm_time" or custom_id == "back_to_main_form":
 			self.add_main_buttons()
 			await self.update_message(interaction)
-		# [新規追加] 備考設定画面のボタン処理
 		elif custom_id == "set_note_message":
 			modal = TextInputModal(title="備考メッセージ入力", label="メッセージ", style=discord.TextStyle.paragraph, parent_view=self, key="note_message", default=self.values["note_message"])
 			await interaction.response.send_modal(modal)
 		elif custom_id == "toggle_mentor":
 			self.values["mentor_needed"] = not self.values["mentor_needed"]
-			self.add_note_buttons() # ボタンのラベルを更新するために再描画
+			self.add_note_buttons()
 			await self.update_message(interaction)
 
 		return True
