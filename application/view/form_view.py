@@ -46,7 +46,6 @@ class IndustrySelect(discord.ui.Select):
 		self.view.values["industry"] = self.values[0]
 		await self.view.update_message(interaction)
 
-# [追加] 削除されてしまっていたCapacitySelectクラスを再定義
 class CapacitySelect(discord.ui.Select):
 	def __init__(self):
 		options = [discord.SelectOption(label=f"{i}人", value=str(i)) for i in range(3, 11)]
@@ -54,7 +53,6 @@ class CapacitySelect(discord.ui.Select):
 	
 	async def callback(self, interaction: discord.Interaction):
 		self.view.values["capacity"] = self.values[0]
-		# メインフォームの画面に戻る
 		self.view.add_main_buttons()
 		await self.view.update_message(interaction)
 
@@ -105,21 +103,21 @@ class RecruitFormView(discord.ui.View):
 			embed.add_field(name="🤝 メンター有無", value="呼ぶ" if self.values['mentor_needed'] else "呼ばない", inline=False)
 			embed.add_field(name="🏢 想定業界", value=self.values['industry'], inline=False)
 		else:
+			# [変更] メインフォームのEmbed表示を修正
 			embed.description = "下のボタンを押して各項目を入力してください。"
 			datetime_val = f"{self.values['date']} {self.values['time_hour']}:{self.values['time_minute']}"
 			if "未設定" in datetime_val:
 				datetime_val = "未設定"
 			
-			note_parts = []
-			if self.values['note_message'] != "未設定": note_parts.append(self.values['note_message'])
-			if self.values['mentor_needed']: note_parts.append("メンター希望")
-			if self.values['industry'] != "未設定": note_parts.append(f"想定業界: {self.values['industry']}")
-			note_full = " / ".join(note_parts) if note_parts else "未設定"
+			mentor_status = "呼ぶ" if self.values['mentor_needed'] else "呼ばない"
 
 			embed.add_field(name="📅 日時", value=datetime_val, inline=False)
 			embed.add_field(name="📍 場所", value=self.values['place'], inline=False)
 			embed.add_field(name="👥 定員", value=self.values['capacity'], inline=False)
-			embed.add_field(name="📝 備考", value=note_full, inline=False)
+			embed.add_field(name="✉️ メッセージ", value=self.values['note_message'], inline=False)
+			embed.add_field(name="🤝 メンター有無", value=mentor_status, inline=False)
+			embed.add_field(name="🏢 想定業界", value=self.values['industry'], inline=False)
+
 		return embed
 
 	async def update_message(self, interaction: discord.Interaction):
@@ -160,7 +158,6 @@ class RecruitFormView(discord.ui.View):
 		elif custom_id == "set_place":
 			modal = TextInputModal(title="場所の入力", label="開催場所 (Zoomなど)", style=discord.TextStyle.short, parent_view=self, key="place", default=self.values["place"])
 			await interaction.response.send_modal(modal)
-		# [変更] 定員設定ボタンの処理を再追加
 		elif custom_id == "set_capacity":
 			self.current_screen = "capacity"
 			self.clear_items()
