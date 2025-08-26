@@ -34,11 +34,31 @@ class MinuteSelect(discord.ui.Select):
 
 		await self.view.update_message(interaction)
 
+# [新規追加] 定員を選択するセレクトメニュー
+class CapacitySelect(discord.ui.Select):
+	def __init__(self):
+		options = [discord.SelectOption(label=f"{i}人", value=str(i)) for i in range(3, 11)]
+		super().__init__(placeholder="定員を選択...", options=options)
+	
+	async def callback(self, interaction: discord.Interaction):
+		selected_capacity = self.values[0]
+		self.view.values["capacity"] = selected_capacity
+
+		for option in self.options:
+			option.default = option.value == selected_capacity
+		
+		# [変更] 親Viewのupdate_messageではなく、メインフォームに戻る処理を直接呼び出す
+		self.view.is_selecting_capacity = False
+		self.view.add_main_buttons()
+		await self.view.update_message(interaction)
+
+
 class RecruitFormView(discord.ui.View):
 	def __init__(self, controller: 'GDBotController'):
 		super().__init__(timeout=600)
 		self.controller = controller
 		self.is_selecting_time = False
+		self.is_selecting_capacity = False # 定員選択中かどうかのフラグを追加
 		self.values = {
 			"date": "未設定",
 			"time_hour": "未設定",
@@ -51,12 +71,10 @@ class RecruitFormView(discord.ui.View):
 
 	def add_main_buttons(self):
 		self.clear_items()
-		# [変更] 4つの設定ボタンをすべて row=0 に配置
 		self.add_item(discord.ui.Button(label="📅 日付設定", style=discord.ButtonStyle.secondary, custom_id="set_date", row=0))
 		self.add_item(discord.ui.Button(label="📍 場所設定", style=discord.ButtonStyle.secondary, custom_id="set_place", row=0))
 		self.add_item(discord.ui.Button(label="👥 定員設定", style=discord.ButtonStyle.secondary, custom_id="set_capacity", row=0))
 		self.add_item(discord.ui.Button(label="📝 備考設定", style=discord.ButtonStyle.secondary, custom_id="set_note", row=0))
-		# [変更] 「募集を作成」ボタンを row=1 に配置
 		self.add_item(discord.ui.Button(label="✅ 募集を作成", style=discord.ButtonStyle.success, custom_id="create_recruit", row=1, disabled=True))
 
 	def create_embed(self):
@@ -77,7 +95,8 @@ class RecruitFormView(discord.ui.View):
 				if isinstance(item, discord.ui.Button) and item.custom_id == "confirm_time":
 					item.disabled = not time_filled
 					break
-		else:
+		# [追加] 定員選択画面用のボタン状態更新ロジックは不要 (選択と同時に画面が戻るため)
+		elif not self.is_selecting_capacity: # 定員選択中でない場合のみメインフォームのボタンを更新
 			required_filled = all(self.values[key] != "未設定" for key in ["date", "time_hour", "time_minute", "place", "capacity"])
 			for item in self.children:
 				if isinstance(item, discord.ui.Button) and item.custom_id == "create_recruit":
@@ -108,9 +127,13 @@ class RecruitFormView(discord.ui.View):
 		elif custom_id == "set_place":
 			modal = TextInputModal(title="場所の入力", label="開催場所 (Zoomなど)", style=discord.TextStyle.short, parent_view=self, key="place", default=self.values["place"])
 			await interaction.response.send_modal(modal)
+		# [変更] 定員設定ボタンの処理をモーダルからプルダウン表示に変更
 		elif custom_id == "set_capacity":
-			modal = TextInputModal(title="定員の入力", label="募集人数 (半角数字)", style=discord.TextStyle.short, parent_view=self, key="capacity", default=self.values["capacity"])
-			await interaction.response.send_modal(modal)
+			self.is_selecting_capacity = True
+			self.clear_items()
+			self.add_item(CapacitySelect())
+			self.add_item(discord.ui.Button(label="↩️ フォームに戻る", style=discord.ButtonStyle.grey, custom_id="back_to_main_form"))
+			await interaction.response.edit_message(view=self)
 		elif custom_id == "set_note":
 			modal = TextInputModal(title="備考の入力", label="備考 (任意)", style=discord.TextStyle.paragraph, parent_view=self, key="note", default=self.values["note"])
 			await interaction.response.send_modal(modal)
@@ -135,8 +158,10 @@ class RecruitFormView(discord.ui.View):
 		elif custom_id == "reset_date":
 			modal = DateInputModal(parent_view=self)
 			await interaction.response.send_modal(modal)
-		elif custom_id == "confirm_time":
+		# [変更] 「時間を登録」と、定員選択画面の「フォームに戻る」ボタンの処理をまとめる
+		elif custom_id == "confirm_time" or custom_id == "back_to_main_form":
 			self.is_selecting_time = False
+			self.is_selecting_capacity = False
 			self.add_main_buttons()
 			await self.update_message(interaction)
 
