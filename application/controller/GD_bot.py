@@ -181,14 +181,11 @@ class GDBotController:
 		
 		# 「イベント作成フォームテスト用」
 		if custom_id == "event":
-			# 以下のコードは、ボタンが押された際のInteraction内で実行されることを想定しています。
-			# 'interaction'変数は、このコンテキストで利用可能である必要があります。
 			try:
-				await interaction.response.send_modal(EventCreationModal())
-				return
+				await it.response.send_modal(EventCreationModal())
 			except NameError:
-				# EventCreationModalクラスが定義されていない場合のフォールバック
-				return
+				await it.response.send_message("エラー: EventCreationModalクラスが定義されていません。", ephemeral=True)
+			return
 		
 		# 「最新状況を反映」ボタンはView内で完結するため、ここでは処理しない
 		if custom_id == "refresh":
@@ -403,8 +400,3 @@ class EventButtonView(discord.ui.View):
 		self, interaction: discord.Interaction, button: discord.ui.Button
 	):
 		await interaction.response.send_modal(EventCreationModal())
-
-
-@bot.command()
-async def create_event_command(ctx):
-	await ctx.send("ボタンを押してイベントを作成してください", view=EventButtonView())
