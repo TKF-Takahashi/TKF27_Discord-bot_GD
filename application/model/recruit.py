@@ -27,10 +27,12 @@ class Recruit:
 
 	def block(self) -> str:
 		"""募集情報を整形して表示用の文字列を生成する"""
-		# [変更] 1. スロットの絵文字を「・」に変更
-		slot_emojis = '・' * self.max_people
+		# [変更] 1. スロット絵文字のロジックを指示通りに修正
+		filled_slots = len(self.participants)
+		empty_slots = self.max_people - filled_slots
+		slot_emojis = '🧑' * filled_slots + '・' * empty_slots
 
-		# --- 2. 備考欄の解析 ---
+		# --- 備考欄の解析 ---
 		note_message = ""
 		mentor_on = False
 		industry = ""
@@ -46,14 +48,14 @@ class Recruit:
 					remaining_parts.append(part)
 			note_message = " ".join(remaining_parts)
 
-		# --- 3. 各行の組み立て ---
+		# --- 各行の組み立て ---
 		lines = []
-		lines.append(f"📅 {self.date}   {len(self.participants)}/{self.max_people}名 🧑{slot_emojis}")
+		# [変更] slot_emojisの前にあった固定の🧑を削除
+		lines.append(f"📅 {self.date}   {filled_slots}/{self.max_people}名 {slot_emojis}")
 		lines.append("-----------------------------")
 		lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
 		lines.append("-----------------------------")
 		
-		# [変更] 2. メンター希望と想定業界の行に絵文字を追加
 		if mentor_on:
 			lines.append("🤝メンター希望：ON")
 		if industry:
