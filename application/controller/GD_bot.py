@@ -3,18 +3,20 @@ import asyncio
 from discord.ext import commands
 from typing import Union
 from datetime import datetime
-import pytz # この行を追加
+import pytz
 
 # 変更: モデルとビューのインポートパス
 from application.model.recruit import RecruitModel, Recruit
 from application.view.recruit import HeaderView, JoinLeaveButtons
 from application.view.modal import RecruitModal
+# [追加] 新しいViewをインポート
+from application.view.form_view import RecruitFormView
 from application.library.helper import remove_thread_system_msg
 
 # GD 練習チャンネルのトピックテキスト
 TOPIC_TEXT = ("📌 **GD 練習チャンネル案内**\n"
-				"・新規募集はボタンから作成してください。\n"
-				"・各募集のボタンで参加/取り消しができます。")
+			"・新規募集はボタンから作成してください。\n"
+			"・各募集のボタンで参加/取り消しができます。")
 
 class GDBotController:
 	"""
@@ -107,6 +109,13 @@ class GDBotController:
 				custom_id="make"
 			)
 		)
+		view.add_item(
+			discord.ui.Button(
+				label="test",
+				style=discord.ButtonStyle.primary,
+				custom_id="test"
+			)
+		)
 
 		if rc.msg_id:
 			try:
@@ -172,8 +181,11 @@ class GDBotController:
 			await it.response.send_modal(RecruitModal(self)) # モーダルを表示
 			return
 
-		# 「最新状況を反映」ボタンはView内で完結するため、ここでは処理しない
-		if custom_id == "refresh":
+		if custom_id == "test":
+			# ([Gemini]ここにで発火させてください。)
+			form_view = RecruitFormView(self)
+			embed = form_view.create_embed()
+			await it.response.send_message(embed=embed, view=form_view, ephemeral=True)
 			return
 
 		if ":" not in custom_id:
@@ -326,3 +338,5 @@ class GDBotController:
 			
 		await self._ensure_header(ch) # ヘッダーメッセージも更新
 		await interaction.followup.send("募集が作成されました！", ephemeral=True)
+
+# ([Gemini]if文外で記述する必要がある処理は基本的にここに書いてください。)
