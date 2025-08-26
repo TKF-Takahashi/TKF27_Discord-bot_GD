@@ -14,11 +14,7 @@ class JoinLeaveButtons(discord.ui.View):
 		self.add_item(
 			discord.ui.Button(label="参加予定を削除",
 							style=discord.ButtonStyle.secondary,
-							custom_id=f"leave:{recruit_id}"))
-		self.add_item(
-			discord.ui.Button(label="イベント作成", # ラベルを"test"から変更
-							style=discord.ButtonStyle.primary,
-							custom_id=f"event:{recruit_id}"))		
+							custom_id=f"leave:{recruit_id}"))	
 		# NOTE: スレッドへボタンと「新たな募集を追加」ボタンは
 		#	   Controller (_send_or_update_recruit_message) で動的に追加されるため、ここには含めない。
 
