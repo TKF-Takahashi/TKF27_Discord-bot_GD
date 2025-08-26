@@ -1,9 +1,10 @@
+# application/controller/GD_bot.py
 import discord
 import asyncio
 from discord.ext import commands
 from typing import Union
 from datetime import datetime
-import pytz # この行を追加
+import pytz
 
 # 変更: モデルとビューのインポートパス
 from application.model.recruit import RecruitModel, Recruit
@@ -13,8 +14,8 @@ from application.library.helper import remove_thread_system_msg
 
 # GD 練習チャンネルのトピックテキスト
 TOPIC_TEXT = ("📌 **GD 練習チャンネル案内**\n"
-				"・新規募集はボタンから作成してください。\n"
-				"・各募集のボタンで参加/取り消しができます。")
+			"・新規募集はボタンから作成してください。\n"
+			"・各募集のボタンで参加/取り消しができます。")
 
 class GDBotController:
 	"""
@@ -89,6 +90,8 @@ class GDBotController:
 		)
 
 		content = rc.block() # Recruitクラスのblock()メソッドで表示テキストを生成
+		
+		# JoinLeaveButtonsを作成するだけで「参加」「取消」「イベント作成」が含まれる
 		view = JoinLeaveButtons(rc.id)
 
 		# スレッドへボタン
@@ -105,14 +108,6 @@ class GDBotController:
 				label="新たな募集を追加",
 				style=discord.ButtonStyle.primary,
 				custom_id="make"
-			)
-		)
-		view.add_item(
-			discord.ui.Button(
-				label="test",
-				style=discord.ButtonStyle.primary,
-				# 変更: どの募集か特定するためにIDを埋め込む
-				custom_id=f"event:{rc.id}"
 			)
 		)
 
@@ -170,72 +165,54 @@ class GDBotController:
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
 		if it.type.name != "component":
-			return # コンポーネントインタラクション以外は無視
+			return
 
 		custom_id = it.data.get("custom_id")
 		
 		# 「募集を作成」ボタンがクリックされた場合
 		if custom_id == "make":
-			# 変更: モーダルビューのインポートパスと、コントローラー自身を渡す
-			await it.response.send_modal(RecruitModal(self)) # モーダルを表示
+			await it.response.send_modal(RecruitModal(self))
 			return
-
-		# 「最新状況を反映」ボタンはView内で完結するため、ここでは処理しない
-		if custom_id == "refresh":
-			return
-
+		
+		# custom_idに":"が含まれない場合はここで処理を終える
 		if ":" not in custom_id:
-			return # フォーマットが異なるカスタムIDは無視
+			return
 
+		# custom_idを":"で分割して、操作(action)とIDを取得
 		action, recruit_id_str = custom_id.split(":", 1)
 		if not recruit_id_str.isdigit():
-			return # IDが数値でない場合は無視
+			return
 		
 		recruit_id = int(recruit_id_str)
-
-		# 処理中の表示
-		if not it.response.is_done():
-			try:
-				await it.response.defer(thinking=False, ephemeral=True)
-			except discord.HTTPException:
-				pass # 既に応答済みの場合など
-			except Exception as e:
-				print(f"インタラクション defer 中に予期せぬエラー: {e}")
-
+		
 		# 募集の存在確認
 		recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
 		if not recruit_data:
-			await it.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
+			# deferしていないので response.send_message を使う
+			await it.response.send_message("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
 			return
-			
-		# 「テスト用」ボタンが押された場合
+
+		# 「イベント作成」ボタンが押された場合
 		if action == "event":
-			# (ここに追加してください。)
+			# 先に応答しないとタイムアウトするため、まずdeferで応答する
+			await it.response.defer(thinking=True, ephemeral=True)
 			try:
-				# イベント名を作成
 				event_name = f"{recruit_data['date_s']} GD練習会"
-				
-				# タイムゾーンを日本標準時(JST)に設定
 				jst = pytz.timezone('Asia/Tokyo')
-				# 募集の日時文字列をdatetimeオブジェクトに変換
-				# 注意: 'date_s'の書式を '%Y/%m/%d %H:%M' と仮定しています
 				start_time_naive = datetime.strptime(recruit_data['date_s'], '%Y/%m/%d %H:%M')
 				start_time_aware = jst.localize(start_time_naive)
 
-				# 場所の情報を設定
 				location_str = recruit_data['place']
 				entity_type = discord.ScheduledEventEntityType.external
 				event_location = location_str
 				event_channel = None
 
-				# ボイスチャンネルを検索
 				vc = discord.utils.get(it.guild.voice_channels, name=location_str)
 				if vc:
 					entity_type = discord.ScheduledEventEntityType.voice
 					event_channel = vc
-					event_location = None # channel指定時はNone
+					event_location = None
 
-				# イベントを作成
 				await it.guild.create_scheduled_event(
 					name=event_name,
 					start_time=start_time_aware,
@@ -250,12 +227,13 @@ class GDBotController:
 				await it.followup.send("エラー: 募集の日時フォーマットが不正です。`YYYY/MM/DD HH:MM` 形式である必要があります。", ephemeral=True)
 			except Exception as e:
 				await it.followup.send(f"イベント作成中にエラーが発生しました: {e}", ephemeral=True)
-			return
+			return # イベント作成処理はここで終わり
 
 		# 「参加予定に追加」「参加予定を削除」ボタンがクリックされた場合
+		await it.response.defer(ephemeral=True)
+		
 		user_id = it.user.id
-		participants = recruit_data.get('participants', []) # DBからはリストとして取得される
-
+		participants = recruit_data.get('participants', [])
 		response_message = ""
 
 		if action == "join":
