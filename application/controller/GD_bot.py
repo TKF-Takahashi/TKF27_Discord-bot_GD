@@ -8,8 +8,7 @@ import pytz
 # 変更: モデルとビューのインポートパス
 from application.model.recruit import RecruitModel, Recruit
 from application.view.recruit import HeaderView, JoinLeaveButtons
-from application.view.modal import RecruitModal
-# [追加] 新しいViewをインポート
+# [変更] 不要になったRecruitModalのインポートを削除
 from application.view.form_view import RecruitFormView
 from application.library.helper import remove_thread_system_msg
 
@@ -26,32 +25,30 @@ class GDBotController:
 	def __init__(self, bot: commands.Bot, channel_id: int):
 		self.bot = bot
 		self.channel_id = channel_id
-		self.recruit_model = RecruitModel() # モデルのインスタンス化
-		self.header_msg_id: Union[int, None] = None # 変更: ヘッダーメッセージIDの管理
+		self.recruit_model = RecruitModel()
+		self.header_msg_id: Union[int, None] = None
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
 
-	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]): # 変更
+	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
 		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
 		current_recruits = await self.recruit_model.get_all_recruits()
 
 		if current_recruits and self.header_msg_id:
 			try:
-				# 募集がある場合はヘッダーメッセージを削除
 				header_msg = await ch.fetch_message(self.header_msg_id)
 				await header_msg.delete()
 				self.header_msg_id = None
 			except discord.NotFound:
-				self.header_msg_id = None # メッセージが見つからない場合はIDをリセット
+				self.header_msg_id = None
 				print("⚠ ヘッダーメッセージが見つかりませんでしたが、IDをリセットしました。")
 			except discord.Forbidden:
 				print("⚠ ヘッダーメッセージ削除権限がありません。")
 			except Exception as e:
 				print(f"ヘッダーメッセージ削除中に予期せぬエラー: {e}")
 		elif not current_recruits and self.header_msg_id is None:
-			# 募集がなく、ヘッダーメッセージもない場合は新規作成
 			try:
 				msg = await ch.send("📢 ボタンはこちら", view=HeaderView())
 				self.header_msg_id = msg.id
@@ -61,13 +58,10 @@ class GDBotController:
 				print(f"ヘッダーメッセージ送信中に予期せぬエラー: {e}")
 
 
-	async def _send_or_update_recruit_message(self, ch: Union[discord.TextChannel, discord.Thread], recruit_data: dict): # 変更
+	async def _send_or_update_recruit_message(self, ch: Union[discord.TextChannel, discord.Thread], recruit_data: dict):
 		"""
 		募集メッセージを送信または更新する。
-		recruit_dataはRecruitModelから取得した辞書形式のデータ。
 		"""
-		# RecruitModelから取得した辞書データをRecruitオブジェクトに変換
-		# 参加者IDリストはMemberオブジェクトに変換する必要がある
 		participants_members: list[discord.Member] = []
 		guild = ch.guild
 		for user_id in recruit_data['participants']:
@@ -90,10 +84,9 @@ class GDBotController:
 			participants=participants_members
 		)
 
-		content = rc.block() # Recruitクラスのblock()メソッドで表示テキストを生成
+		content = rc.block()
 		view = JoinLeaveButtons(rc.id)
 
-		# スレッドへボタン
 		view.add_item(
 			discord.ui.Button(
 				label="スレッドへ",
@@ -101,14 +94,7 @@ class GDBotController:
 				url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
 			)
 		)
-		# 新たな募集を追加ボタン（スレッドへボタンの右側）
-		view.add_item(
-			discord.ui.Button(
-				label="新たな募集を追加",
-				style=discord.ButtonStyle.primary,
-				custom_id="make"
-			)
-		)
+		# [削除] 「新たな募集を追加」ボタンの追加処理を削除
 		view.add_item(
 			discord.ui.Button(
 				label="test",
@@ -123,20 +109,17 @@ class GDBotController:
 				await message.edit(content=content, view=view)
 				return
 			except discord.NotFound:
-				# メッセージが見つからない場合は新規送信
 				print(f"募集メッセージID {rc.msg_id} が見つかりません。新規送信します。")
 			except discord.Forbidden:
 				print(f"⚠ メッセージ編集権限がありません。メッセージID: {rc.msg_id}")
 			except Exception as e:
 				print(f"メッセージ編集中に予期せぬエラー ({rc.msg_id}): {e}")
 
-		# 新規送信
 		try:
 			msg = await ch.send(content, view=view)
-			# DBにメッセージIDを保存
 			await self.recruit_model.update_recruit_message_id(rc.id, msg.id)
-			rc.msg_id = msg.id # Recruitオブジェクトにも設定
-			await asyncio.sleep(0.5) # Discord APIのレートリミット対策
+			rc.msg_id = msg.id
+			await asyncio.sleep(0.5)
 		except discord.Forbidden:
 			print("⚠ メッセージ送信権限がありません。")
 		except Exception as e:
@@ -146,100 +129,81 @@ class GDBotController:
 	# ───────────────── BOT イベント ─────────────────
 	async def on_ready(self):
 		"""ボットが起動した際に実行される処理"""
-		await self.bot.tree.sync() # スラッシュコマンドの同期
+		await self.bot.tree.sync()
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
 			print(f"エラー: CHANNEL_ID {self.channel_id} はテキストチャンネルまたはスレッドではありません。")
 			return
 
 		try:
-			await ch.edit(topic=TOPIC_TEXT) # チャンネルトピックの更新
+			await ch.edit(topic=TOPIC_TEXT)
 		except discord.Forbidden:
 			print("⚠ チャンネルトピック設定権限がありません。")
 		except Exception as e:
 			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
 
-
-		# 既存の募集メッセージをすべて更新（起動時にDBからロードして表示を同期）
 		all_recruits = await self.recruit_model.get_all_recruits()
 		for recruit_data in all_recruits:
 			await self._send_or_update_recruit_message(ch, recruit_data)
 
-		await self._ensure_header(ch) # ヘッダーメッセージの管理
+		await self._ensure_header(ch)
 		print("✅ ready")
 
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
 		if it.type.name != "component":
-			return # コンポーネントインタラクション以外は無視
+			return
 
 		custom_id = it.data.get("custom_id")
 		
-		# 「募集を作成」ボタンがクリックされた場合
-		if custom_id == "make":
-			# 変更: モーダルビューのインポートパスと、コントローラー自身を渡す
-			await it.response.send_modal(RecruitModal(self)) # モーダルを表示
-			return
-
+		# [削除] custom_id == "make" の処理ブロックを削除
 		if custom_id == "test":
-			# ([Gemini]ここにで発火させてください。)
 			form_view = RecruitFormView(self)
 			embed = form_view.create_embed()
 			await it.response.send_message(embed=embed, view=form_view, ephemeral=True)
 			return
 
 		if ":" not in custom_id:
-			return # フォーマットが異なるカスタムIDは無視
+			return
 
 		action, recruit_id_str = custom_id.split(":", 1)
 		if not recruit_id_str.isdigit():
-			return # IDが数値でない場合は無視
+			return
 		
 		recruit_id = int(recruit_id_str)
 
-		# 処理中の表示
 		if not it.response.is_done():
 			try:
 				await it.response.defer(thinking=False, ephemeral=True)
 			except discord.HTTPException:
-				pass # 既に応答済みの場合など
+				pass
 			except Exception as e:
 				print(f"インタラクション defer 中に予期せぬエラー: {e}")
 
-		# 募集の存在確認
 		recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
 		if not recruit_data:
 			await it.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
 			return
 			
-		# 「テスト用」ボタンが押された場合
 		if action == "event":
-			# (ここに追加してください。)
 			try:
-				# イベント名を作成
 				event_name = f"{recruit_data['date_s']} GD練習会"
 				
-				# タイムゾーンを日本標準時(JST)に設定
 				jst = pytz.timezone('Asia/Tokyo')
-				# 募集の日時文字列をdatetimeオブジェクトに変換
-				# 注意: 'date_s'の書式を '%Y/%m/%d %H:%M' と仮定しています
 				start_time_naive = datetime.strptime(recruit_data['date_s'], '%Y/%m/%d %H:%M')
 				start_time_aware = jst.localize(start_time_naive)
 
-				# 場所の情報を設定
 				location_str = recruit_data['place']
 				entity_type = discord.ScheduledEventEntityType.external
 				event_location = location_str
 				event_channel = None
 
-				# ボイスチャンネルを検索
 				vc = discord.utils.get(it.guild.voice_channels, name=location_str)
 				if vc:
 					entity_type = discord.ScheduledEventEntityType.voice
 					event_channel = vc
-					event_location = None # channel指定時はNone
+					event_location = None
 
-				# イベントを作成
 				await it.guild.create_scheduled_event(
 					name=event_name,
 					start_time=start_time_aware,
@@ -256,20 +220,18 @@ class GDBotController:
 				await it.followup.send(f"イベント作成中にエラーが発生しました: {e}", ephemeral=True)
 			return
 
-		# 「参加予定に追加」「参加予定を削除」ボタンがクリックされた場合
 		user_id = it.user.id
-		participants = recruit_data.get('participants', []) # DBからはリストとして取得される
+		participants = recruit_data.get('participants', [])
 
 		response_message = ""
 
 		if action == "join":
-			# 参加済みでない & 満員でない
 			if user_id not in participants and len(participants) < recruit_data['max_people']:
 				participants.append(user_id)
 				response_message = "参加予定に追加しました。"
 			elif user_id in participants:
 				response_message = "あなたは既にこの募集に参加しています。"
-			elif len(participants) >= recruit_data['max_people']:
+			else:
 				response_message = "この募集は満員です。"
 		elif action == "leave":
 			if user_id in participants:
@@ -278,37 +240,36 @@ class GDBotController:
 			else:
 				response_message = "あなたはまだこの募集に参加していません。"
 		
-		# 参加者リストが変更された場合のみDBを更新
 		if response_message in ["参加予定に追加しました。", "参加予定から削除しました。"]:
 			await self.recruit_model.update_recruit_participants(recruit_id, participants)
 		
 		await it.followup.send(response_message, ephemeral=True)
 
-		# 参加者リストが更新されたので、メッセージを再更新
 		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
 		channel = self.bot.get_channel(self.channel_id)
 		if isinstance(channel, (discord.TextChannel, discord.Thread)):
 			await self._send_or_update_recruit_message(channel, updated_recruit_data)
 		
-		# ヘッダーメッセージも更新
 		await self._ensure_header(channel)
 
 
 	async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict):
 		"""
 		RecruitModalから募集データが送信された際の処理
-		モーダルからのコールバックなので、GDBotControllerが持つメソッドとして定義
 		"""
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
-			await interaction.followup.send("エラー: チャンネルが見つからないか、不適切なタイプです。", ephemeral=True)
+			# is_done() のチェックを追加
+			if not interaction.response.is_done():
+				await interaction.response.send_message("エラー: チャンネルが見つからないか、不適切なタイプです。", ephemeral=True)
+			else:
+				await interaction.followup.send("エラー: チャンネルが見つからないか、不適切なタイプです。", ephemeral=True)
 			return
 
-		# スレッドの作成
 		thread_name = f"🗨 {data['date_s']} GD練習について"
 		try:
 			th = await ch.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
-			await remove_thread_system_msg(ch) # システムメッセージ削除
+			await remove_thread_system_msg(ch)
 		except discord.Forbidden:
 			await interaction.followup.send("エラー: スレッド作成権限がありません。", ephemeral=True)
 			return
@@ -316,7 +277,6 @@ class GDBotController:
 			await interaction.followup.send(f"エラー: スレッド作成中に問題が発生しました: {e}", ephemeral=True)
 			return
 
-		# データベースに募集データを保存
 		new_recruit_id = await self.recruit_model.add_recruit(
 			date_s=data['date_s'],
 			place=data['place'],
@@ -329,14 +289,11 @@ class GDBotController:
 			await interaction.followup.send("エラー: 募集の保存に失敗しました。", ephemeral=True)
 			return
 
-		# 保存した募集データを取得してメッセージを送信
 		new_recruit_data = await self.recruit_model.get_recruit_by_id(new_recruit_id)
 		if new_recruit_data:
 			await self._send_or_update_recruit_message(ch, new_recruit_data)
 		else:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
-		await self._ensure_header(ch) # ヘッダーメッセージも更新
+		await self._ensure_header(ch)
 		await interaction.followup.send("募集が作成されました！", ephemeral=True)
-
-# ([Gemini]if文外で記述する必要がある処理は基本的にここに書いてください。)
