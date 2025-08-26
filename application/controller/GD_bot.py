@@ -26,24 +26,140 @@ class GDBotController:
 		self.channel_id = channel_id
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
-		# [追加] 処理済みインタラクションIDを記録するセット
 		self.processed_interactions: Set[int] = set()
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
 
-	# (_ensure_header, _send_or_update_recruit_message, on_ready の各メソッドは変更なし)
-	# ... (変更のないメソッドは省略) ...
+	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
+		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
+		current_recruits = await self.recruit_model.get_all_recruits()
+
+		if current_recruits and self.header_msg_id:
+			try:
+				header_msg = await ch.fetch_message(self.header_msg_id)
+				await header_msg.delete()
+				self.header_msg_id = None
+			except discord.NotFound:
+				self.header_msg_id = None
+				print("⚠ ヘッダーメッセージが見つかりませんでしたが、IDをリセットしました。")
+			except discord.Forbidden:
+				print("⚠ ヘッダーメッセージ削除権限がありません。")
+			except Exception as e:
+				print(f"ヘッダーメッセージ削除中に予期せぬエラー: {e}")
+		elif not current_recruits and self.header_msg_id is None:
+			try:
+				msg = await ch.send("📢 ボタンはこちら", view=HeaderView())
+				self.header_msg_id = msg.id
+			except discord.Forbidden:
+				print("⚠ ヘッダーメッセージ送信権限がありません。")
+			except Exception as e:
+				print(f"ヘッダーメッセージ送信中に予期せぬエラー: {e}")
+
+	async def _send_or_update_recruit_message(self, ch: Union[discord.TextChannel, discord.Thread], recruit_data: dict):
+		"""
+		募集メッセージを送信または更新する。
+		"""
+		participants_members: list[discord.Member] = []
+		guild = ch.guild
+		for user_id in recruit_data['participants']:
+			try:
+				member = await guild.fetch_member(user_id)
+				participants_members.append(member)
+			except discord.NotFound:
+				print(f"警告: 参加者ID {user_id} のメンバーが見つかりません。")
+			except Exception as e:
+				print(f"メンバー取得中に予期せぬエラー ({user_id}): {e}")
+
+		author_member = None
+		if recruit_data.get('author_id'):
+			try:
+				author_member = await guild.fetch_member(recruit_data['author_id'])
+			except discord.NotFound:
+				print(f"警告: 募集者ID {recruit_data['author_id']} のメンバーが見つかりません。")
+
+		rc = Recruit(
+			rid=recruit_data['id'],
+			date_s=recruit_data['date_s'],
+			place=recruit_data['place'],
+			cap=recruit_data['max_people'],
+			note=recruit_data['note'],
+			thread_id=recruit_data['thread_id'],
+			msg_id=recruit_data['msg_id'],
+			participants=participants_members,
+			author=author_member
+		)
+
+		content = rc.block()
+		view = JoinLeaveButtons(rc.id)
+
+		view.add_item(
+			discord.ui.Button(
+				label="スレッドへ",
+				style=discord.ButtonStyle.link,
+				url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
+			)
+		)
+		view.add_item(
+			discord.ui.Button(
+				label="新たな募集を追加",
+				style=discord.ButtonStyle.primary,
+				custom_id="test"
+			)
+		)
+
+		if rc.msg_id:
+			try:
+				message = await ch.fetch_message(rc.msg_id)
+				await message.edit(content=content, view=view)
+				return
+			except discord.NotFound:
+				print(f"募集メッセージID {rc.msg_id} が見つかりません。新規送信します。")
+			except discord.Forbidden:
+				print(f"⚠ メッセージ編集権限がありません。メッセージID: {rc.msg_id}")
+			except Exception as e:
+				print(f"メッセージ編集中に予期せぬエラー ({rc.msg_id}): {e}")
+
+		try:
+			msg = await ch.send(content, view=view)
+			await self.recruit_model.update_recruit_message_id(rc.id, msg.id)
+			rc.msg_id = msg.id
+			await asyncio.sleep(0.5)
+		except discord.Forbidden:
+			print("⚠ メッセージ送信権限がありません。")
+		except Exception as e:
+			print(f"メッセージ送信中に予期せぬエラー: {e}")
+
+	# ───────────────── BOT イベント ─────────────────
+	async def on_ready(self):
+		"""ボットが起動した際に実行される処理"""
+		await self.bot.tree.sync()
+		ch = self.bot.get_channel(self.channel_id)
+		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
+			print(f"エラー: CHANNEL_ID {self.channel_id} はテキストチャンネルまたはスレッドではありません。")
+			return
+
+		try:
+			await ch.edit(topic=TOPIC_TEXT)
+		except discord.Forbidden:
+			print("⚠ チャンネルトピック設定権限がありません。")
+		except Exception as e:
+			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
+
+		all_recruits = await self.recruit_model.get_all_recruits()
+		for recruit_data in all_recruits:
+			await self._send_or_update_recruit_message(ch, recruit_data)
+
+		await self._ensure_header(ch)
+		print("✅ ready")
 
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
-		# [追加] 処理が2重に実行されることを防ぐためのチェック
 		if it.id in self.processed_interactions:
-			return # 既に処理済みの場合はここで終了
+			return
 		self.processed_interactions.add(it.id)
-		# 古いIDをセットから削除する後処理（メモリリーク対策）
-		# 600秒(10分)以上前のインタラクションIDを削除
+		
 		async def cleanup_interactions():
 			await asyncio.sleep(600)
 			self.processed_interactions.discard(it.id)
