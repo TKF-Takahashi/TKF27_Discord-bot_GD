@@ -1,9 +1,9 @@
-# application/controller/GD_bot.py
 import discord
 import asyncio
 from discord.ext import commands
-from typing import Union # この行を追加
+from typing import Union
 from datetime import datetime
+import pytz # この行を追加
 
 # 変更: モデルとビューのインポートパス
 from application.model.recruit import RecruitModel, Recruit
@@ -13,8 +13,8 @@ from application.library.helper import remove_thread_system_msg
 
 # GD 練習チャンネルのトピックテキスト
 TOPIC_TEXT = ("📌 **GD 練習チャンネル案内**\n"
-			  "・新規募集はボタンから作成してください。\n"
-			  "・各募集のボタンで参加/取り消しができます。")
+				"・新規募集はボタンから作成してください。\n"
+				"・各募集のボタンで参加/取り消しができます。")
 
 class GDBotController:
 	"""
@@ -111,7 +111,8 @@ class GDBotController:
 			discord.ui.Button(
 				label="test",
 				style=discord.ButtonStyle.primary,
-				custom_id="event"
+				# 変更: どの募集か特定するためにIDを埋め込む
+				custom_id=f"event:{rc.id}"
 			)
 		)
 
@@ -172,40 +173,25 @@ class GDBotController:
 			return # コンポーネントインタラクション以外は無視
 
 		custom_id = it.data.get("custom_id")
-
+		
 		# 「募集を作成」ボタンがクリックされた場合
 		if custom_id == "make":
 			# 変更: モーダルビューのインポートパスと、コントローラー自身を渡す
 			await it.response.send_modal(RecruitModal(self)) # モーダルを表示
 			return
-		
-		# 「イベント作成フォームテスト用」
-		if custom_id == "event":
-			try:
-				await it.response.send_modal(EventCreationModal())
-			except NameError:
-				await it.response.send_message("エラー: EventCreationModalクラスが定義されていません。", ephemeral=True)
-			return
-		
+
 		# 「最新状況を反映」ボタンはView内で完結するため、ここでは処理しない
 		if custom_id == "refresh":
 			return
 
-		# 「参加予定に追加」「参加予定を削除」ボタンがクリックされた場合
 		if ":" not in custom_id:
 			return # フォーマットが異なるカスタムIDは無視
 
 		action, recruit_id_str = custom_id.split(":", 1)
 		if not recruit_id_str.isdigit():
 			return # IDが数値でない場合は無視
-
+		
 		recruit_id = int(recruit_id_str)
-
-		# 募集の存在確認
-		recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
-		if not recruit_data:
-			await it.response.send_message("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
-			return
 
 		# 処理中の表示
 		if not it.response.is_done():
@@ -216,6 +202,57 @@ class GDBotController:
 			except Exception as e:
 				print(f"インタラクション defer 中に予期せぬエラー: {e}")
 
+		# 募集の存在確認
+		recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
+		if not recruit_data:
+			await it.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
+			return
+			
+		# 「テスト用」ボタンが押された場合
+		if action == "event":
+			# (ここに追加してください。)
+			try:
+				# イベント名を作成
+				event_name = f"{recruit_data['date_s']} GD練習会"
+				
+				# タイムゾーンを日本標準時(JST)に設定
+				jst = pytz.timezone('Asia/Tokyo')
+				# 募集の日時文字列をdatetimeオブジェクトに変換
+				# 注意: 'date_s'の書式を '%Y/%m/%d %H:%M' と仮定しています
+				start_time_naive = datetime.strptime(recruit_data['date_s'], '%Y/%m/%d %H:%M')
+				start_time_aware = jst.localize(start_time_naive)
+
+				# 場所の情報を設定
+				location_str = recruit_data['place']
+				entity_type = discord.ScheduledEventEntityType.external
+				event_location = location_str
+				event_channel = None
+
+				# ボイスチャンネルを検索
+				vc = discord.utils.get(it.guild.voice_channels, name=location_str)
+				if vc:
+					entity_type = discord.ScheduledEventEntityType.voice
+					event_channel = vc
+					event_location = None # channel指定時はNone
+
+				# イベントを作成
+				await it.guild.create_scheduled_event(
+					name=event_name,
+					start_time=start_time_aware,
+					entity_type=entity_type,
+					channel=event_channel,
+					location=event_location,
+					description=recruit_data['note']
+				)
+				await it.followup.send(f"イベント「{event_name}」を作成しました。", ephemeral=True)
+
+			except ValueError:
+				await it.followup.send("エラー: 募集の日時フォーマットが不正です。`YYYY/MM/DD HH:MM` 形式である必要があります。", ephemeral=True)
+			except Exception as e:
+				await it.followup.send(f"イベント作成中にエラーが発生しました: {e}", ephemeral=True)
+			return
+
+		# 「参加予定に追加」「参加予定を削除」ボタンがクリックされた場合
 		user_id = it.user.id
 		participants = recruit_data.get('participants', []) # DBからはリストとして取得される
 
@@ -297,106 +334,3 @@ class GDBotController:
 			
 		await self._ensure_header(ch) # ヘッダーメッセージも更新
 		await interaction.followup.send("募集が作成されました！", ephemeral=True)
-
-
-
-
-
-
-# Discord botのセットアップ
-# intents = discord.Intents.default()
-# intents.message_content = True
-# intents.scheduled_events = True
-# bot = commands.Bot(command_prefix="!", intents=intents)
-
-# Discord APIの仕様変更により、必要なインテントは適宜追加してください。
-# また、イベント作成にはGUILD_SCHEDULED_EVENTS_CREATEの権限が必要です。
-
-class EventCreationModal(discord.ui.Modal, title="イベント作成フォーム"):
-	event_name = discord.ui.TextInput(
-		label="イベント名",
-		placeholder="GD募集",
-		default="GD募集",  # 初期値を設定
-		required=True,
-	)
-
-	event_date = discord.ui.TextInput(
-		label="開催日 (例: 7/10)",
-		placeholder="7/10",
-		required=True,
-	)
-
-	event_desc = discord.ui.TextInput(
-		label="イベントの説明",
-		placeholder="詳細な説明を入力してください",
-		required=False,
-		style=discord.TextStyle.long,
-	)
-
-	event_location = discord.ui.TextInput(
-		label="イベントの場所（ボイスch名やURL）",
-		placeholder="vc名",
-		required=True,
-	)
-
-	async def on_submit(self, interaction: discord.Interaction):
-		# イベント名の動的な変更
-		final_event_name = f"{self.event_date.value}:{self.event_name.value}"
-
-		# イベントの場所を特定
-		# ボイスチャンネル名でチャンネルを取得する例
-		location_channel = discord.utils.get(
-			interaction.guild.voice_channels,
-			name=self.event_location.value
-		)
-		if location_channel is None:
-			await interaction.response.send_message(
-				"指定されたボイスチャンネルが見つかりませんでした。",
-				ephemeral=True
-			)
-			return
-
-		# ここでイベント作成APIを呼び出す
-		# Discord APIでは、ISO 8601形式のタイムスタンプが必要です。
-		# ユーザー入力からdatetimeオブジェクトを生成する必要がありますが、
-		# 厳密な日付フォーマットを求めるか、より柔軟な入力を受け付けるかによって実装は変わります。
-		# 以下はあくまで例です。
-		try:
-			# ユーザー入力から日付を解析
-			current_year = datetime.now().year
-			# 例として、7/10を2025/7/10として解析
-			event_start_time = datetime.strptime(
-				f"{current_year}/{self.event_date.value}", "%Y/%m/%d"
-			)
-
-			# イベントの作成
-			await interaction.guild.create_scheduled_event(
-				name=final_event_name,
-				scheduled_start_time=event_start_time,
-				description=self.event_desc.value,
-				channel=location_channel,
-				entity_type=discord.EntityType.voice
-			)
-
-			await interaction.response.send_message(
-				f"イベント「**{final_event_name}**」が作成されました！"
-			)
-
-		except ValueError:
-			await interaction.response.send_message(
-				"日付の形式が正しくありません。例: 7/10",
-				ephemeral=True
-			)
-			return
-
-
-class EventButtonView(discord.ui.View):
-	@discord.ui.button(
-		label="イベント作成",
-		style=discord.ButtonStyle.primary,
-		custom_id="create_event_button",
-	)
-	async def create_event_button(
-		self, interaction: discord.Interaction, button: discord.ui.Button
-	):
-		await interaction.response.send_modal(EventCreationModal())
