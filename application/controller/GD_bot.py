@@ -26,7 +26,6 @@ class GDBotController:
 		self.channel_id = channel_id
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
-		self.processed_interactions: Set[int] = set()
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
@@ -92,7 +91,7 @@ class GDBotController:
 		)
 
 		content = rc.block()
-		view = JoinLeaveButtons(rc.id)
+		view = JoinLeaveButtons(self, rc.id)
 
 		view.add_item(
 			discord.ui.Button(
@@ -131,6 +130,7 @@ class GDBotController:
 		except Exception as e:
 			print(f"メッセージ送信中に予期せぬエラー: {e}")
 
+
 	# ───────────────── BOT イベント ─────────────────
 	async def on_ready(self):
 		"""ボットが起動した際に実行される処理"""
@@ -156,15 +156,10 @@ class GDBotController:
 
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
-		if it.id in self.processed_interactions:
+		# View側で処理されるインタラクションは、ここでは何もしない
+		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:")):
 			return
-		self.processed_interactions.add(it.id)
-		
-		async def cleanup_interactions():
-			await asyncio.sleep(600)
-			self.processed_interactions.discard(it.id)
-		self.bot.loop.create_task(cleanup_interactions())
-		
+
 		if it.type.name != "component":
 			return
 
@@ -233,39 +228,6 @@ class GDBotController:
 				await it.followup.send(f"イベント作成中にエラーが発生しました: {e}", ephemeral=True)
 			return
 
-		user_id = it.user.id
-		participants = recruit_data.get('participants', [])
-
-		response_message = ""
-
-		if action == "join":
-			if user_id not in participants and len(participants) < recruit_data['max_people']:
-				participants.append(user_id)
-				response_message = "参加予定に追加しました。"
-			elif user_id in participants:
-				response_message = "あなたは既にこの募集に参加しています。"
-			else:
-				response_message = "この募集は満員です。"
-		elif action == "leave":
-			if user_id in participants:
-				participants.remove(user_id)
-				response_message = "参加予定から削除しました。"
-			else:
-				response_message = "あなたはまだこの募集に参加していません。"
-		
-		if response_message in ["参加予定に追加しました。", "参加予定から削除しました。"]:
-			await self.recruit_model.update_recruit_participants(recruit_id, participants)
-		
-		await it.followup.send(response_message, ephemeral=True)
-
-		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
-		channel = self.bot.get_channel(self.channel_id)
-		if isinstance(channel, (discord.TextChannel, discord.Thread)):
-			await self._send_or_update_recruit_message(channel, updated_recruit_data)
-		
-		await self._ensure_header(channel)
-
-
 	async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict):
 		"""
 		募集データが送信された際の処理 (新しいフォームから呼び出される)
@@ -311,3 +273,5 @@ class GDBotController:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch)
+		# フォームからのインタラクションはView側で応答済みのため、ここではfollowupで通知
+		await interaction.followup.send("募集が作成されました！", ephemeral=True)
