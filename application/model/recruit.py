@@ -1,7 +1,6 @@
-# application/model/recruit.py
 import json
 import discord # Recruitクラスでdiscord.Memberを使うため
-from typing import Union # この行を追加
+from typing import Union
 
 from .database_manager import DatabaseManager
 
@@ -10,7 +9,7 @@ class Recruit:
 	GD募集の情報を保持するデータクラス。
 	"""
 	def __init__(self, rid: int, date_s: str, place: str, cap: int, note: str, thread_id: int,
-				 msg_id: Union[int, None] = None, participants: Union[list[discord.Member], None] = None): # 変更
+				 msg_id: Union[int, None] = None, participants: Union[list[discord.Member], None] = None):
 		self.id = rid
 		self.date = date_s
 		self.place = place
@@ -26,16 +25,49 @@ class Recruit:
 	def is_joined(self, u: discord.Member) -> bool:
 		return u and any(p.id == u.id for p in self.participants)
 
+	# [変更] 表示形式をご指定のレイアウトに修正
 	def block(self) -> str:
 		"""募集情報を整形して表示用の文字列を生成する"""
-		l1 = f"\U0001F4C5 {self.date}   \U0001F9D1 {len(self.participants)}/{self.max_people}名"
-		l2 = f"{self.place}"
-		l3 = f"{self.note}" if self.note else ""
-		l4 = "\U0001F7E8 満員" if self.is_full() else "⬜ 募集中"
-		l5 = "👥 参加者: " + (", ".join(
-			p.display_name
-			for p in self.participants) if self.participants else "なし")
-		return f"```\n{l1}\n{l2}\n{l3}\n{l4}\n{l5}\n```"
+		# --- 1. スロット絵文字の生成 ---
+		filled_slots = len(self.participants)
+		empty_slots = self.max_people - filled_slots
+		# 参加済みのスロットを青丸、空きスロットを白丸で表現
+		slot_emojis = '🔵' * filled_slots + '⚪' * empty_slots
+
+		# --- 2. 備考欄の解析 ---
+		note_message = ""
+		mentor_on = False
+		industry = ""
+		if self.note:
+			note_parts = self.note.split(' / ')
+			remaining_parts = []
+			for part in note_parts:
+				if part == "メンター希望":
+					mentor_on = True
+				elif part.startswith("想定業界: "):
+					industry = part.replace("想定業界: ", "", 1)
+				else:
+					remaining_parts.append(part)
+			note_message = " ".join(remaining_parts)
+
+		# --- 3. 各行の組み立て ---
+		lines = []
+		lines.append(f"📅 {self.date}   {filled_slots}/{self.max_people}名 🧑{slot_emojis}")
+		lines.append("-----------------------------")
+		lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
+		lines.append("-----------------------------")
+		if mentor_on:
+			lines.append("●メンター希望：ON")
+		if industry:
+			lines.append(f"●想定業界: {industry}")
+		
+		lines.append("🟡 満員" if self.is_full() else "⬜ 募集中")
+		
+		participants_text = ", ".join(p.display_name for p in self.participants) if self.participants else "なし"
+		lines.append(f"👥 参加者: {participants_text}")
+
+		final_text = "\n".join(lines)
+		return f"```\n{final_text}\n```"
 
 class RecruitModel:
 	"""
@@ -44,7 +76,7 @@ class RecruitModel:
 	def __init__(self):
 		pass # DatabaseManagerはstaticなのでインスタンスは不要
 
-	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int) -> Union[int, None]: # 変更
+	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int) -> Union[int, None]:
 		"""新しい募集をデータベースに追加する"""
 		query = """
 			INSERT INTO recruits (date_s, place, max_people, note, thread_id, participants)
@@ -64,7 +96,7 @@ class RecruitModel:
 			row['participants'] = json.loads(row['participants']) if row['participants'] else []
 		return rows
 
-	async def get_recruit_by_id(self, recruit_id: int) -> Union[dict, None]: # 変更
+	async def get_recruit_by_id(self, recruit_id: int) -> Union[dict, None]:
 		"""指定されたIDの募集データをデータベースから取得する"""
 		query = "SELECT * FROM recruits WHERE id = ?"
 		row = await DatabaseManager.fetch_one(query, (recruit_id,))
