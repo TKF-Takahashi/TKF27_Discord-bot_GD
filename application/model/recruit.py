@@ -49,7 +49,7 @@ class Recruit:
 			note_message = " ".join(remaining_parts)
 
 		# 1. 日付と時間の行を見出しとして生成
-		header_line = f"### 📅 {self.date}   {filled_slots}/{self.max_people}名 {slot_emojis}"
+		header_line = f"# 📅 {self.date}   {filled_slots}/{self.max_people}名 {slot_emojis}"
 		
 		# 2. 残りの情報をコードブロックとして生成
 		info_lines = []
