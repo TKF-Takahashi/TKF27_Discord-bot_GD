@@ -272,7 +272,6 @@ class GDBotController:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch)
-		await interaction.followup.send("募集が作成されました！", ephemeral=True)
 
 	async def handle_recruit_update(self, interaction: discord.Interaction, recruit_id: int, data: dict):
 		"""
@@ -288,6 +287,5 @@ class GDBotController:
 		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
 		if updated_recruit_data:
 			await self._send_or_update_recruit_message(ch, updated_recruit_data)
-			await interaction.followup.send("募集を更新しました！", ephemeral=True)
 		else:
 			await interaction.followup.send("エラー: 募集の更新に失敗しました。", ephemeral=True)
