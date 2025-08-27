@@ -14,7 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | EXPLANATION OF VARIABLES
 | -------------------------------------------------------------------
 |
-|	['dsn']      The full DSN string describe a connection to the database.
+|	['dsn']	  The full DSN string describe a connection to the database.
 |	['hostname'] The hostname of your database server.
 |	['username'] The username used to connect to the database
 |	['password'] The password used to connect to the database
@@ -44,9 +44,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 |			'mysql' (deprecated), 'sqlsrv' and 'pdo/sqlsrv' drivers accept TRUE/FALSE
 |			'mysqli' and 'pdo/mysql' drivers accept an array with the following options:
 |
-|				'ssl_key'    - Path to the private key file
+|				'ssl_key'	- Path to the private key file
 |				'ssl_cert'   - Path to the public key certificate file
-|				'ssl_ca'     - Path to the certificate authority file
+|				'ssl_ca'	 - Path to the certificate authority file
 |				'ssl_capath' - Path to a directory containing trusted CA certificats in PEM format
 |				'ssl_cipher' - List of *allowed* ciphers to be used for the encryption, separated by colons (':')
 |				'ssl_verify' - TRUE/FALSE; Whether verify the server certificate or not ('mysqli' only)
@@ -96,24 +96,24 @@ $db['default'] = array(
 );
 
 $db['bot_db'] = array(
-    'dsn'	=> '',
-    'hostname' => 'localhost',
-    'username' => '',
-    'password' => '',
-    // ！！！必ず先ほど確認した recruits.db の絶対パスに書き換えてください ！！！
-    'database' => '/home/ec2-user/bot/TKF27_Discord-bot_GD/recruits.db',
-    'dbdriver' => 'sqlite3',
-    'dbprefix' => '',
-    'pconnect' => FALSE,
-    'db_debug' => (ENVIRONMENT !== 'production'),
-    'cache_on' => FALSE,
-    'cachedir' => '',
-    'char_set' => 'utf8',
-    'dbcollat' => 'utf8_general_ci',
-    'swap_pre' => '',
-    'encrypt' => FALSE,
-    'compress' => FALSE,
-    'stricton' => FALSE,
-    'failover' => array(),
-    'save_queries' => TRUE
+	'dsn'	=> '',
+	'hostname' => 'localhost',
+	'username' => '',
+	'password' => '',
+	// ！！！必ず先ほど確認した recruits.db の絶対パスに書き換えてください ！！！
+	'database' => '/home/ec2-user/bot/TKF27_Discord-bot_GD/your_discord_bot_db',
+	'dbdriver' => 'sqlite3',
+	'dbprefix' => '',
+	'pconnect' => FALSE,
+	'db_debug' => (ENVIRONMENT !== 'production'),
+	'cache_on' => FALSE,
+	'cachedir' => '',
+	'char_set' => 'utf8',
+	'dbcollat' => 'utf8_general_ci',
+	'swap_pre' => '',
+	'encrypt' => FALSE,
+	'compress' => FALSE,
+	'stricton' => FALSE,
+	'failover' => array(),
+	'save_queries' => TRUE
 );
