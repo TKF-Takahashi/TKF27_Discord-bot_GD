@@ -48,28 +48,33 @@ class Recruit:
 					remaining_parts.append(part)
 			note_message = " ".join(remaining_parts)
 
-		lines = []
-		lines.append(f"📅 {self.date}   {filled_slots}/{self.max_people}名 {slot_emojis}")
-		lines.append("-----------------------------")
+		# 1. 日付と時間の行を見出しとして生成
+		header_line = f"### 📅 {self.date}   {filled_slots}/{self.max_people}名 {slot_emojis}"
+		
+		# 2. 残りの情報をコードブロックとして生成
+		info_lines = []
+		info_lines.append("-----------------------------")
 		if self.author:
-			lines.append(f"[募集者]  {self.author.display_name}")
+			info_lines.append(f"[募集者]  {self.author.display_name}")
 		else:
-			lines.append(f"[募集者]  不明なユーザー")
-		lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
-		lines.append("-----------------------------")
+			info_lines.append(f"[募集者]  不明なユーザー")
+		info_lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
+		info_lines.append("-----------------------------")
 		
 		if mentor_on:
-			lines.append("🤝メンター希望：ON")
+			info_lines.append("🤝メンター希望：ON")
 		if industry:
-			lines.append(f"🏢想定業界: {industry}")
+			info_lines.append(f"🏢想定業界: {industry}")
 		
-		lines.append("🟡 満員" if self.is_full() else "⬜ 募集中")
+		info_lines.append("🟡 満員" if self.is_full() else "⬜ 募集中")
 		
 		participants_text = ", ".join(p.display_name for p in self.participants) if self.participants else "なし"
-		lines.append(f"👥 参加者: {participants_text}")
+		info_lines.append(f"👥 参加者: {participants_text}")
+		
+		info_block = "```\n" + "\n".join(info_lines) + "\n```"
 
-		final_text = "\n".join(lines)
-		return f"```\n{final_text}\n```"
+		# 3. 見出しとコードブロックを結合して返す
+		return f"{header_line}\n{info_block}"
 
 class RecruitModel:
 	"""
