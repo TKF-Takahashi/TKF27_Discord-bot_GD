@@ -56,10 +56,10 @@ class Recruit:
 		info_lines.append(f"({filled_slots}/{self.max_people}名)  [{slot_emojis}]")
 		info_lines.append("-----------------------------")
 		if self.author:
-			info_lines.append(f"[募集者]  {self.author.display_name}")
+			info_lines.append(f"【募集者】  {self.author.display_name}")
 		else:
-			info_lines.append(f"[募集者]  不明なユーザー")
-		info_lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
+			info_lines.append(f"【募集者】  不明なユーザー")
+		info_lines.append(f"【メッセージ】  {note_message}" if note_message else "【メッセージ】  なし")
 		info_lines.append("-----------------------------")
 		
 		if mentor_on:
