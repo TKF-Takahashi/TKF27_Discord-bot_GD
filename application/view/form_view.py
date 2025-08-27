@@ -9,7 +9,6 @@ class HourSelect(discord.ui.Select):
 	def __init__(self, default_hour: str = None):
 		hours = [f"{h:02}" for h in range(8, 24)] + [f"{h:02}" for h in range(0, 8)]
 		options = [discord.SelectOption(label=f"{h}時", value=h) for h in hours]
-		# 編集モード用にデフォルト値を設定
 		if default_hour and default_hour != "未設定":
 			for option in options:
 				if option.value == default_hour:
@@ -27,7 +26,6 @@ class HourSelect(discord.ui.Select):
 class MinuteSelect(discord.ui.Select):
 	def __init__(self, default_minute: str = None):
 		options = [discord.SelectOption(label=f"{m:02}分", value=f"{m:02}") for m in range(0, 60, 5)]
-		# 編集モード用にデフォルト値を設定
 		if default_minute and default_minute != "未設定":
 			for option in options:
 				if option.value == default_minute:
@@ -104,7 +102,7 @@ class RecruitFormView(discord.ui.View):
 					self.values["time_hour"] = dt_obj.strftime("%H")
 					self.values["time_minute"] = dt_obj.strftime("%M")
 				except ValueError:
-					pass # パース失敗時は未設定のまま
+					pass
 
 			note = initial_data.get("note", "")
 			note_parts = note.split(' / ')
@@ -178,7 +176,6 @@ class RecruitFormView(discord.ui.View):
 					break
 		elif self.current_screen == "main":
 			required_filled = all(self.values[key] != "未設定" for key in ["date", "time_hour", "time_minute", "place", "capacity"])
-			# 新規作成の場合のみボタンを無効化
 			if not self.recruit_id:
 				for item in self.children:
 					if isinstance(item, discord.ui.Button) and item.custom_id == "create_recruit":
@@ -240,12 +237,12 @@ class RecruitFormView(discord.ui.View):
 				'max_people': cap_int,
 				'note': note_full
 			}
+			
+			await interaction.response.defer(ephemeral=True)
 
 			if self.recruit_id:
-				await interaction.delete_original_response()
 				await self.controller.handle_recruit_update(interaction, self.recruit_id, data_payload)
 			else:
-				await interaction.delete_original_response()
 				await self.controller.handle_recruit_submission(interaction, data_payload)
 			
 			self.stop()
