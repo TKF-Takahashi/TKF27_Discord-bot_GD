@@ -1,4 +1,6 @@
+# application/view/recruit.py
 import discord
+from datetime import datetime
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -118,9 +120,21 @@ class RefreshButton(discord.ui.Button):
 		await it.response.defer(ephemeral=True)
 		recruit_model = RecruitModel()
 		all_recruits_data = await recruit_model.get_all_recruits()
+		
+		now = datetime.now() # 現在時刻を取得
 
 		blocks = []
 		for r_data in all_recruits_data:
+			try:
+				# 募集日時をdatetimeオブジェクトに変換
+				recruit_datetime = datetime.strptime(r_data['date_s'], "%Y/%m/%d %H:%M")
+				# 現在時刻と比較し、過去の募集はスキップ
+				if recruit_datetime < now:
+					continue
+			except (ValueError, KeyError):
+				# 日付のパースに失敗した場合もスキップ（またはエラーログ）
+				continue
+
 			participants_display = [f"<@{uid}>" for uid in r_data['participants']] if r_data['participants'] else []
 			is_full = len(r_data['participants']) >= r_data['max_people']
 			
