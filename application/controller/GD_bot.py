@@ -1,3 +1,4 @@
+# application/controller/GD_bot.py
 import discord
 import asyncio
 from discord.ext import commands
@@ -103,9 +104,23 @@ class GDBotController:
 
 		content = rc.block()
 		
-		# 募集が終了している場合はボタンを非表示にする
+		# 終了した募集と、通常の募集でビューを分ける
 		if rc.is_expired():
-			view = None
+			view = discord.ui.View(timeout=None)
+			view.add_item(
+				discord.ui.Button(
+					label="スレッドへ",
+					style=discord.ButtonStyle.link,
+					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
+				)
+			)
+			view.add_item(
+				discord.ui.Button(
+					label="新たな募集を追加",
+					style=discord.ButtonStyle.primary,
+					custom_id="test"
+				)
+			)
 		else:
 			view = JoinLeaveButtons(self, rc.id)
 			view.add_item(

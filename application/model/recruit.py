@@ -1,3 +1,4 @@
+# application/model/recruit.py
 import json
 import discord
 from typing import Union
@@ -70,7 +71,8 @@ class Recruit:
 				info_lines.append(f"【募集者】  {self.author.display_name}")
 			else:
 				info_lines.append(f"【募集者】  不明なユーザー")
-			info_lines.append("【メッセージ】  {note_message}" if note_message else "【メッセージ】  なし")
+			# 修正: f-stringとして正しく評価されるように修正
+			info_lines.append(f"【メッセージ】  {note_message}" if note_message else "【メッセージ】  なし")
 			info_lines.append("-----------------------------")
 			info_block = "```\n" + "\n".join(info_lines) + "\n```"
 			# ブロック引用符で囲み、文字を薄く（灰色に）見せる
@@ -85,7 +87,7 @@ class Recruit:
 			info_lines.append(f"【募集者】  {self.author.display_name}")
 		else:
 			info_lines.append(f"【募集者】  不明なユーザー")
-		info_lines.append("【メッセージ】  {note_message}" if note_message else "【メッセージ】  なし")
+		info_lines.append(f"【メッセージ】  {note_message}" if note_message else "【メッセージ】  なし")
 		info_lines.append("-----------------------------")
 		
 		if mentor_on:
