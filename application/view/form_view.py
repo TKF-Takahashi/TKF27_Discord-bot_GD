@@ -242,13 +242,13 @@ class RecruitFormView(discord.ui.View):
 			}
 
 			if self.recruit_id:
-				await interaction.response.defer()
-				await interaction.edit_original_response(view=None)
-				await self.controller.handle_recruit_update(interaction, self.recruit_id, data_payload)
+				await interaction.response.edit_message(content="募集を更新しています...", embed=None, view=None)
+				message_to_delete = await interaction.original_response()
+				await self.controller.handle_recruit_update(interaction, self.recruit_id, data_payload, message_to_delete)
 			else:
-				await interaction.response.defer()
-				await interaction.edit_original_response(view=None)
-				await self.controller.handle_recruit_submission(interaction, data_payload)
+				await interaction.response.edit_message(content="募集を作成しています...", embed=None, view=None)
+				message_to_delete = await interaction.original_response()
+				await self.controller.handle_recruit_submission(interaction, data_payload, message_to_delete)
 			
 			self.stop()
 		elif custom_id == "reset_date":
