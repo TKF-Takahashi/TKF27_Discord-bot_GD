@@ -26,6 +26,8 @@ class GDBotController:
 		self.channel_id = channel_id
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
+		# 編集権限を持つロールのIDをここに設定してください
+		self.EDIT_ROLE_ID = 123456789012345678 # 例：実際のロールIDに置き換えてください
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
@@ -130,8 +132,6 @@ class GDBotController:
 		except Exception as e:
 			print(f"メッセージ送信中に予期せぬエラー: {e}")
 
-
-	# ───────────────── BOT イベント ─────────────────
 	async def on_ready(self):
 		"""ボットが起動した際に実行される処理"""
 		await self.bot.tree.sync()
@@ -156,8 +156,7 @@ class GDBotController:
 
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
-		# View側で処理されるインタラクションは、ここでは何もしない
-		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:")):
+		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:")):
 			return
 
 		if it.type.name != "component":
@@ -273,5 +272,22 @@ class GDBotController:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch)
-		# フォームからのインタラクションはView側で応答済みのため、ここではfollowupで通知
 		await interaction.followup.send("募集が作成されました！", ephemeral=True)
+
+	async def handle_recruit_update(self, interaction: discord.Interaction, recruit_id: int, data: dict):
+		"""
+		編集フォームから送信されたデータで既存の募集を更新する
+		"""
+		ch = self.bot.get_channel(self.channel_id)
+		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
+			await interaction.followup.send("エラー: チャンネルが見つかりません。", ephemeral=True)
+			return
+		
+		await self.recruit_model.update_recruit(recruit_id, data)
+
+		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
+		if updated_recruit_data:
+			await self._send_or_update_recruit_message(ch, updated_recruit_data)
+			await interaction.followup.send("募集を更新しました！", ephemeral=True)
+		else:
+			await interaction.followup.send("エラー: 募集の更新に失敗しました。", ephemeral=True)
