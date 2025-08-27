@@ -242,10 +242,12 @@ class RecruitFormView(discord.ui.View):
 			}
 
 			if self.recruit_id:
-				await interaction.response.edit_message(content="​", embed=None, view=None)
+				await interaction.response.defer()
+				await interaction.edit_original_response(view=None)
 				await self.controller.handle_recruit_update(interaction, self.recruit_id, data_payload)
 			else:
-				await interaction.response.edit_message(content="​", embed=None, view=None)
+				await interaction.response.defer()
+				await interaction.edit_original_response(view=None)
 				await self.controller.handle_recruit_submission(interaction, data_payload)
 			
 			self.stop()
