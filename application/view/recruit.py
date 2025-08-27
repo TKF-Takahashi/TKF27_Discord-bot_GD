@@ -35,18 +35,16 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user_id = interaction.user.id
 		participants = recruit_data.get('participants', [])
-		response_message = ""
+		if user_id in participants:
+			await interaction.followup.send("あなたは既にこの募集に参加しています。", ephemeral=True)
+			return
 
-		if user_id not in participants and len(participants) < recruit_data['max_people']:
-			participants.append(user_id)
-			response_message = "参加予定に追加しました。"
-			await self.controller.recruit_model.update_recruit_participants(self.recruit_id, participants)
-		elif user_id in participants:
-			response_message = "あなたは既にこの募集に参加しています。"
-		else:
-			response_message = "この募集は満員です。"
-		
-		await interaction.followup.send(response_message, ephemeral=True)
+		if len(participants) >= recruit_data['max_people']:
+			await interaction.followup.send("この募集は満員です。", ephemeral=True)
+			return
+
+		participants.append(user_id)
+		await self.controller.recruit_model.update_recruit_participants(self.recruit_id, participants)
 		
 		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		channel = self.controller.bot.get_channel(self.controller.channel_id)
@@ -63,16 +61,12 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user_id = interaction.user.id
 		participants = recruit_data.get('participants', [])
-		response_message = ""
 
 		if user_id in participants:
 			participants.remove(user_id)
-			response_message = "参加予定から削除しました。"
 			await self.controller.recruit_model.update_recruit_participants(self.recruit_id, participants)
 		else:
-			response_message = "あなたはまだこの募集に参加していません。"
-
-		await interaction.followup.send(response_message, ephemeral=True)
+			await interaction.followup.send("あなたはまだこの募集に参加していません。", ephemeral=True)
 		
 		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		channel = self.controller.bot.get_channel(self.controller.channel_id)
