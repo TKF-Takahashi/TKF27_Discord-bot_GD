@@ -49,10 +49,10 @@ class DateInputModal(discord.ui.Modal, title="日付入力"):
 			month = int(self.month_input.value)
 			day = int(self.day_input.value)
 			
-			if month <= 3:
-				year = 2026
-			else:
+			if month >= 4:
 				year = 2025
+			else:
+				year = 2026
 				
 			# 指定された年月日でdatetimeオブジェクトを作成し、有効性を確認
 			datetime(year, month, day)
