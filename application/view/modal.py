@@ -1,8 +1,9 @@
+# application/view/modal.py
 import re
 import discord
 from datetime import datetime
-
-if False:
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
 	from application.controller.GD_bot import GDBotController
 	from application.view.form_view import RecruitFormView
 
@@ -48,13 +49,13 @@ class DateInputModal(discord.ui.Modal, title="日付入力"):
 			month = int(self.month_input.value)
 			day = int(self.day_input.value)
 			
-			now = datetime.now()
-			year = now.year
-			
-			event_dt_this_year = datetime(year, month, day)
-
-			if event_dt_this_year < now:
-				year += 1
+			if month <= 3:
+				year = 2026
+			else:
+				year = 2025
+				
+			# 指定された年月日でdatetimeオブジェクトを作成し、有効性を確認
+			datetime(year, month, day)
 
 		except (ValueError, TypeError):
 			await interaction.response.send_message("月または日が数字でないか、存在しない日付です。", ephemeral=True)
