@@ -227,7 +227,7 @@ class GDBotController:
 				await it.followup.send(f"イベント作成中にエラーが発生しました: {e}", ephemeral=True)
 			return
 
-	async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict):
+	async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict, message_to_delete: discord.Message):
 		"""
 		募集データが送信された際の処理 (新しいフォームから呼び出される)
 		"""
@@ -272,8 +272,10 @@ class GDBotController:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch)
+		
+		await message_to_delete.delete()
 
-	async def handle_recruit_update(self, interaction: discord.Interaction, recruit_id: int, data: dict):
+	async def handle_recruit_update(self, interaction: discord.Interaction, recruit_id: int, data: dict, message_to_delete: discord.Message):
 		"""
 		編集フォームから送信されたデータで既存の募集を更新する
 		"""
@@ -289,3 +291,5 @@ class GDBotController:
 			await self._send_or_update_recruit_message(ch, updated_recruit_data)
 		else:
 			await interaction.followup.send("エラー: 募集の更新に失敗しました。", ephemeral=True)
+		
+		await message_to_delete.delete()
