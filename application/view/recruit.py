@@ -95,11 +95,11 @@ class JoinLeaveButtons(discord.ui.View):
 			await interaction.followup.send("あなたには、この募集を編集する権限がありません。", ephemeral=True)
 			return
 		
-		from application.view.form_view import RecruitFormView
+		await interaction.response.defer(ephemeral=True) # 応答を保留
+
 		form_view = RecruitFormView(self.controller, initial_data=recruit_data, recruit_id=self.recruit_id)
 		embed = form_view.create_embed()
 		await interaction.followup.send(embed=embed, view=form_view, ephemeral=True)
-
 
 class MakeButton(discord.ui.Button):
 	"""ヘッダービュー用の「募集を作成」ボタン。"""
