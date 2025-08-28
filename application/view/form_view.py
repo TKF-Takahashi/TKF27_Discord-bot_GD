@@ -1,8 +1,6 @@
-# application/view/form_view.py
 import discord
 from datetime import datetime
 from .modal import TextInputModal, DateInputModal
-import re
 
 if False:
 	from application.controller.GD_bot import GDBotController
@@ -108,22 +106,10 @@ class RecruitFormView(discord.ui.View):
 				except ValueError:
 					pass # パース失敗時は未設定のまま
 
-			# 修正: 既存のnoteカラムから、新しい個別のカラムにデータをマッピング
-			note = initial_data.get("note", "")
-			if note:
-				note_parts = note.split(' / ')
-				for part in note_parts:
-					if part == "メンター希望":
-						self.values["mentor_needed"] = True
-					elif part.startswith("想定業界: "):
-						self.values["industry"] = part.replace("想定業界: ", "", 1)
-					else:
-						self.values["note_message"] = part
-			
 			self.values["note_message"] = initial_data.get("message", "未設定")
 			self.values["mentor_needed"] = initial_data.get("mentor_needed", 0) == 1
 			self.values["industry"] = initial_data.get("industry", "未設定")
-		
+
 		self.add_main_buttons()
 
 	def add_main_buttons(self):
@@ -167,17 +153,12 @@ class RecruitFormView(discord.ui.View):
 			
 			mentor_status = "呼ぶ" if self.values['mentor_needed'] else "呼ばない"
 
-			place_val = self.values['place'] if self.values['place'] is not None else "未設定"
-			capacity_val = self.values['capacity'] if self.values['capacity'] is not None else "未設定"
-			message_val = self.values['note_message'] if self.values['note_message'] is not None else "未設定"
-			industry_val = self.values['industry'] if self.values['industry'] is not None else "未設定"
-
 			embed.add_field(name="📅 日時", value=datetime_val, inline=False)
-			embed.add_field(name="📍 場所", value=place_val, inline=False)
-			embed.add_field(name="👥 定員", value=capacity_val, inline=False)
-			embed.add_field(name="✉️ メッセージ", value=message_val, inline=False)
+			embed.add_field(name="📍 場所", value=self.values['place'], inline=False)
+			embed.add_field(name="👥 定員", value=self.values['capacity'], inline=False)
+			embed.add_field(name="✉️ メッセージ", value=self.values['note_message'], inline=False)
 			embed.add_field(name="🤝 メンター有無", value=mentor_status, inline=False)
-			embed.add_field(name="🏢 想定業界", value=industry_val, inline=False)
+			embed.add_field(name="🏢 想定業界", value=self.values['industry'], inline=False)
 		return embed
 
 	async def update_message(self, interaction: discord.Interaction):
@@ -236,11 +217,9 @@ class RecruitFormView(discord.ui.View):
 				cap_int = int(self.values['capacity'])
 				if cap_int <= 0: raise ValueError
 				
-				note_parts = []
-				if self.values['note_message'] != "未設定": note_parts.append(self.values['note_message'])
-				if self.values['mentor_needed']: note_parts.append("メンター希望")
-				if self.values['industry'] != "未設定": note_parts.append(f"想定業界: {self.values['industry']}")
-				note_full = " / ".join(note_parts)
+				mentor_needed_val = self.values['mentor_needed']
+				industry_val = self.values['industry'] if self.values['industry'] != "未設定" else None
+
 			except (ValueError, TypeError):
 				await interaction.response.send_message("日時または定員の形式が正しくありません。入力し直してください。", ephemeral=True)
 				return True
@@ -249,7 +228,9 @@ class RecruitFormView(discord.ui.View):
 				'date_s': date_s,
 				'place': self.values['place'],
 				'max_people': cap_int,
-				'note': note_full
+				'message': self.values['note_message'] if self.values['note_message'] != "未設定" else None,
+				'mentor_needed': mentor_needed_val,
+				'industry': industry_val,
 			}
 
 			if self.recruit_id:
