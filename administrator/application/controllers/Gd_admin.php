@@ -1,3 +1,4 @@
+// administrator/controllers/Gd_admin.php
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
@@ -31,7 +32,9 @@ class Gd_admin extends CI_Controller {
 				'date_s' => $this->input->post('date_s'),
 				'place' => $this->input->post('place'),
 				'max_people' => $this->input->post('max_people'),
-				'note' => $this->input->post('note'),
+				'message' => $this->input->post('message'),
+				'mentor_needed' => $this->input->post('mentor_needed') ? 1 : 0,
+				'industry' => $this->input->post('industry'),
 				'participants' => $this->input->post('participants')
 			);
 			$this->recruit_admin_model->update_recruit($id, $update_data);
