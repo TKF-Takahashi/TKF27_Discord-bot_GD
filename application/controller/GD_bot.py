@@ -252,13 +252,15 @@ class GDBotController:
 
 		author_id = interaction.user.id
 
+		initial_participants = [author_id]
 		new_recruit_id = await self.recruit_model.add_recruit(
 			date_s=data['date_s'],
 			place=data['place'],
 			max_people=data['max_people'],
 			note=data['note'],
 			thread_id=th.id,
-			author_id=author_id
+			author_id=author_id,
+			participants=initial_participants,
 		)
 
 		if new_recruit_id is None:
