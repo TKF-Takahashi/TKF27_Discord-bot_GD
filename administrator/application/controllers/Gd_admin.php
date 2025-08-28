@@ -1,4 +1,3 @@
-// administrator/controllers/Gd_admin.php
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
@@ -68,8 +67,14 @@ class Gd_admin extends CI_Controller {
 			$this->recruit_admin_model->set_setting('mentor_role_id', $mentor_role_id);
 			redirect('gd_admin/settings');
 		}
-+
-		$data['mentor_role_id'] = $this->recruit_admin_model->get_setting('mentor_role_id')['value'] ?? '';
+		
+		$setting = $this->recruit_admin_model->get_setting('mentor_role_id');
+		if ($setting) {
+			$data['mentor_role_id'] = $setting['value'];
+		} else {
+			$data['mentor_role_id'] = '';
+		}
+
 		$this->load->view('gd_admin/settings', $data);
 	}
 }
