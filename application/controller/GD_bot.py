@@ -34,6 +34,11 @@ class GDBotController:
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
 
+		# データベースからメンターロールIDを読み込む
+		async def _load_mentor_role_id():
+			self.MENTOR_ROLE_ID = int(await self.recruit_model.get_setting('mentor_role_id')) if await self.recruit_model.get_setting('mentor_role_id') else None
+		self.bot.loop.create_task(_load_mentor_role_id())
+
 	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
 		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
 		current_recruits = await self.recruit_model.get_all_recruits()
@@ -105,6 +110,11 @@ class GDBotController:
 		)
 
 		content = rc.block()
+
+		if rc.mentor_needed and self.MENTOR_ROLE_ID:
+			mentor_role = ch.guild.get_role(self.MENTOR_ROLE_ID)
+			if mentor_role:
+				content = f"{mentor_role.mention}\n\n" + content
 		
 		# 終了した募集と、通常の募集でビューを分ける
 		if rc.is_expired():

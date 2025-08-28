@@ -111,3 +111,37 @@ class DatabaseManager:
 		finally:
 			if conn:
 				conn.close()
+
+	@staticmethod
+	async def get_setting(key: str) -> Union[str, None]:
+		"""指定されたキーの設定値を取得する"""
+		conn = None
+		try:
+			conn = DatabaseManager._get_connection()
+			cursor = conn.cursor()
+			cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+			row = cursor.fetchone()
+			return row['value'] if row else None
+		except sqlite3.Error as e:
+			print(f"SQLite設定取得中にエラーが発生しました: {key} - {e}")
+			return None
+		finally:
+			if conn:
+				conn.close()
+
+	@staticmethod
+	async def set_setting(key: str, value: str):
+		"""設定値を保存または更新する"""
+		conn = None
+		try:
+			conn = DatabaseManager._get_connection()
+			cursor = conn.cursor()
+			cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+			conn.commit()
+		except sqlite3.Error as e:
+			print(f"SQLite設定保存中にエラーが発生しました: {key} - {e}")
+			if conn:
+				conn.rollback()
+		finally:
+			if conn:
+				conn.close()
