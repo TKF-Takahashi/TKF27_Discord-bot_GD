@@ -112,12 +112,12 @@ class RecruitModel:
 	def __init__(self):
 		pass
 
-	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int, author_id: int) -> Union[int, None]:
+	async def add_recruit(self, date_s: str, place: str, max_people: int, note: str, thread_id: int, author_id: int, participants: list[int]) -> Union[int, None]:
 		query = """
 			INSERT INTO recruits (date_s, place, max_people, note, thread_id, participants, author_id)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		"""
-		participants_json = json.dumps([])
+		participants_json = json.dumps(participants)
 		recruit_id = await DatabaseManager.execute_query(
 			query, (date_s, place, max_people, note, thread_id, participants_json, author_id)
 		)
