@@ -1,4 +1,7 @@
+# application/view/recruit.py
 import discord
+from datetime import datetime, timedelta
+import pytz
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -35,18 +38,16 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user_id = interaction.user.id
 		participants = recruit_data.get('participants', [])
-		response_message = ""
+		if user_id in participants:
+			await interaction.followup.send("あなたは既にこの募集に参加しています。", ephemeral=True)
+			return
 
-		if user_id not in participants and len(participants) < recruit_data['max_people']:
-			participants.append(user_id)
-			response_message = "参加予定に追加しました。"
-			await self.controller.recruit_model.update_recruit_participants(self.recruit_id, participants)
-		elif user_id in participants:
-			response_message = "あなたは既にこの募集に参加しています。"
-		else:
-			response_message = "この募集は満員です。"
-		
-		await interaction.followup.send(response_message, ephemeral=True)
+		if len(participants) >= recruit_data['max_people']:
+			await interaction.followup.send("この募集は満員です。", ephemeral=True)
+			return
+
+		participants.append(user_id)
+		await self.controller.recruit_model.update_recruit_participants(self.recruit_id, participants)
 		
 		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		channel = self.controller.bot.get_channel(self.controller.channel_id)
@@ -63,16 +64,12 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user_id = interaction.user.id
 		participants = recruit_data.get('participants', [])
-		response_message = ""
 
 		if user_id in participants:
 			participants.remove(user_id)
-			response_message = "参加予定から削除しました。"
 			await self.controller.recruit_model.update_recruit_participants(self.recruit_id, participants)
 		else:
-			response_message = "あなたはまだこの募集に参加していません。"
-
-		await interaction.followup.send(response_message, ephemeral=True)
+			await interaction.followup.send("あなたはまだこの募集に参加していません。", ephemeral=True)
 		
 		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		channel = self.controller.bot.get_channel(self.controller.channel_id)
@@ -124,18 +121,43 @@ class RefreshButton(discord.ui.Button):
 		await it.response.defer(ephemeral=True)
 		recruit_model = RecruitModel()
 		all_recruits_data = await recruit_model.get_all_recruits()
+		
+		jst = pytz.timezone('Asia/Tokyo')
+		now_jst = datetime.now(jst)
 
 		blocks = []
 		for r_data in all_recruits_data:
-			participants_display = [f"<@{uid}>" for uid in r_data['participants']] if r_data['participants'] else []
-			is_full = len(r_data['participants']) >= r_data['max_people']
-			
-			l1 = f"\U0001F4C5 {r_data['date_s']}   \U0001F9D1 {len(r_data['participants'])}/{r_data['max_people']}名"
-			l2 = f"{r_data['place']}"
-			l3 = f"{r_data['note']}" if r_data['note'] else ""
-			l4 = "\U0001F7E8 満員" if is_full else "⬜ 募集中"
-			l5 = "👥 参加者: " + (", ".join(participants_display) if participants_display else "なし")
-			blocks.append(f"```\n{l1}\n{l2}\n{l3}\n{l4}\n{l5}\n```")
+			try:
+				# 募集日時をdatetimeオブジェクトに変換し、タイムゾーン情報を持たせる
+				recruit_datetime_naive = datetime.strptime(r_data['date_s'], "%Y/%m/%d %H:%M")
+				recruit_datetime = jst.localize(recruit_datetime_naive)
+				
+				# 1時間以上経過しているかを確認
+				if recruit_datetime < now_jst - timedelta(hours=1):
+					# 終了した募集の表示形式
+					l1 = f"【終了】{r_data['date_s']}"
+					l2 = f"{r_data['place']}"
+					l3 = f"{r_data['note']}" if r_data['note'] else ""
+					l4 = "" # 終了した募集のためステータスを非表示
+					l5 = "" # 参加者リストを非表示
+					# ブロック引用符で囲み、灰色っぽく表示
+					blocks.append(f"> ```\n> {l1}\n> {l2}\n> {l3}\n> {l4}\n> {l5}\n> ```")
+					continue
+				
+				# 1時間未満の過去の募集、または未来の募集は通常通り表示
+				participants_display = [f"<@{uid}>" for uid in r_data['participants']] if r_data['participants'] else []
+				is_full = len(r_data['participants']) >= r_data['max_people']
+				
+				l1 = f"\U0001F4C5 {r_data['date_s']}   \U0001F9D1 {len(r_data['participants'])}/{r_data['max_people']}名"
+				l2 = f"{r_data['place']}"
+				l3 = f"{r_data['note']}" if r_data['note'] else ""
+				l4 = "\U0001F7E8 満員" if is_full else "⬜ 募集中"
+				l5 = "👥 参加者: " + (", ".join(participants_display) if participants_display else "なし")
+				blocks.append(f"```\n{l1}\n{l2}\n{l3}\n{l4}\n{l5}\n```")
+
+			except (ValueError, KeyError, pytz.UnknownTimeZoneError):
+				# 日付のパースまたはタイムゾーン設定に失敗した場合もスキップ
+				continue
 
 		content = "\n".join(blocks) if blocks else "現在募集はありません。"
 		await it.followup.send(content, ephemeral=True)

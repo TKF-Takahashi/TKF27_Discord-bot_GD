@@ -1,6 +1,9 @@
+# application/model/recruit.py
 import json
 import discord
 from typing import Union
+from datetime import datetime, timedelta
+import pytz
 
 from .database_manager import DatabaseManager
 
@@ -12,7 +15,7 @@ class Recruit:
 				 author: Union[discord.Member, None],
 				 msg_id: Union[int, None] = None, participants: Union[list[discord.Member], None] = None):
 		self.id = rid
-		self.date = date_s
+		self.date_str = date_s
 		self.place = place
 		self.max_people = cap
 		self.note = note
@@ -27,12 +30,22 @@ class Recruit:
 	def is_joined(self, u: discord.Member) -> bool:
 		return u and any(p.id == u.id for p in self.participants)
 
+	def is_expired(self) -> bool:
+		try:
+			jst = pytz.timezone('Asia/Tokyo')
+			recruit_datetime_naive = datetime.strptime(self.date_str, "%Y/%m/%d %H:%M")
+			recruit_datetime = jst.localize(recruit_datetime_naive)
+			now_jst = datetime.now(jst)
+			return recruit_datetime < now_jst - timedelta(hours=1)
+		except (ValueError, pytz.UnknownTimeZoneError):
+			return True # 日付形式が不正な場合は終了と見なす
+
 	def block(self) -> str:
 		"""募集情報を整形して表示用の文字列を生成する"""
 		filled_slots = len(self.participants)
 		empty_slots = self.max_people - filled_slots
 		slot_emojis = '🧑' * filled_slots + '・' * empty_slots
-
+		
 		note_message = ""
 		mentor_on = False
 		industry = ""
@@ -48,28 +61,49 @@ class Recruit:
 					remaining_parts.append(part)
 			note_message = " ".join(remaining_parts)
 
-		lines = []
-		lines.append(f"📅 {self.date}   {filled_slots}/{self.max_people}名 {slot_emojis}")
-		lines.append("-----------------------------")
+		# 終了した募集の表示
+		if self.is_expired():
+			header_line = f"【終了】📅 {self.date_str}"
+			info_lines = []
+			info_lines.append(f"({filled_slots}/{self.max_people}名)")
+			info_lines.append("-----------------------------")
+			if self.author:
+				info_lines.append(f"【募集者】  {self.author.display_name}")
+			else:
+				info_lines.append(f"【募集者】  不明なユーザー")
+			# 修正: f-stringとして正しく評価されるように修正
+			info_lines.append(f"【メッセージ】  {note_message}" if note_message else "【メッセージ】  なし")
+			info_lines.append("-----------------------------")
+			info_block = "```\n" + "\n".join(info_lines) + "\n```"
+			# ブロック引用符で囲み、文字を薄く（灰色に）見せる
+			return f"> {header_line}\n{info_block}"
+		
+		# 通常の募集の表示
+		header_line = f"# 📅 {self.date_str}"
+		info_lines = []
+		info_lines.append(f"({filled_slots}/{self.max_people}名)  [{slot_emojis}]")
+		info_lines.append("-----------------------------")
 		if self.author:
-			lines.append(f"[募集者]  {self.author.display_name}")
+			info_lines.append(f"【募集者】  {self.author.display_name}")
 		else:
-			lines.append(f"[募集者]  不明なユーザー")
-		lines.append(f"[メッセージ]  {note_message}" if note_message else "[メッセージ]  なし")
-		lines.append("-----------------------------")
+			info_lines.append(f"【募集者】  不明なユーザー")
+		info_lines.append(f"【メッセージ】  {note_message}" if note_message else "【メッセージ】  なし")
+		info_lines.append("-----------------------------")
 		
 		if mentor_on:
-			lines.append("🤝メンター希望：ON")
+			info_lines.append("🤝メンター希望：ON")
 		if industry:
-			lines.append(f"🏢想定業界: {industry}")
+			info_lines.append(f"🏢想定業界: {industry}")
 		
-		lines.append("🟡 満員" if self.is_full() else "⬜ 募集中")
+		info_lines.append("🟡 満員" if self.is_full() else "⬜ 募集中")
 		
 		participants_text = ", ".join(p.display_name for p in self.participants) if self.participants else "なし"
-		lines.append(f"👥 参加者: {participants_text}")
+		info_lines.append(f"👥 参加者: {participants_text}")
+		
+		info_block = "```\n" + "\n".join(info_lines) + "\n```"
 
-		final_text = "\n".join(lines)
-		return f"```\n{final_text}\n```"
+		return f"{header_line}\n{info_block}"
+
 
 class RecruitModel:
 	"""

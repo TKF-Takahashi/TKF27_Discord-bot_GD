@@ -1,8 +1,9 @@
+# application/controller/GD_bot.py
 import discord
 import asyncio
 from discord.ext import commands
 from typing import Union, Set
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 
 # 実際のプロジェクト構造に合わせてインポートパスを修正してください
@@ -36,8 +37,17 @@ class GDBotController:
 	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
 		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
 		current_recruits = await self.recruit_model.get_all_recruits()
+		
+		jst = pytz.timezone('Asia/Tokyo')
+		now_jst = datetime.now(jst)
+		
+		# 終了した募集をフィルタリング
+		active_recruits = [
+			r for r in current_recruits
+			if jst.localize(datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")) >= now_jst - timedelta(hours=1)
+		]
 
-		if current_recruits and self.header_msg_id:
+		if active_recruits and self.header_msg_id:
 			try:
 				header_msg = await ch.fetch_message(self.header_msg_id)
 				await header_msg.delete()
@@ -49,7 +59,7 @@ class GDBotController:
 				print("⚠ ヘッダーメッセージ削除権限がありません。")
 			except Exception as e:
 				print(f"ヘッダーメッセージ削除中に予期せぬエラー: {e}")
-		elif not current_recruits and self.header_msg_id is None:
+		elif not active_recruits and self.header_msg_id is None:
 			try:
 				msg = await ch.send("📢 ボタンはこちら", view=HeaderView())
 				self.header_msg_id = msg.id
@@ -93,22 +103,40 @@ class GDBotController:
 		)
 
 		content = rc.block()
-		view = JoinLeaveButtons(self, rc.id)
-
-		view.add_item(
-			discord.ui.Button(
-				label="スレッドへ",
-				style=discord.ButtonStyle.link,
-				url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
+		
+		# 終了した募集と、通常の募集でビューを分ける
+		if rc.is_expired():
+			view = discord.ui.View(timeout=None)
+			view.add_item(
+				discord.ui.Button(
+					label="スレッドへ",
+					style=discord.ButtonStyle.link,
+					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
+				)
 			)
-		)
-		view.add_item(
-			discord.ui.Button(
-				label="新たな募集を追加",
-				style=discord.ButtonStyle.primary,
-				custom_id="test"
+			view.add_item(
+				discord.ui.Button(
+					label="新たな募集を追加",
+					style=discord.ButtonStyle.primary,
+					custom_id="test"
+				)
 			)
-		)
+		else:
+			view = JoinLeaveButtons(self, rc.id)
+			view.add_item(
+				discord.ui.Button(
+					label="スレッドへ",
+					style=discord.ButtonStyle.link,
+					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
+				)
+			)
+			view.add_item(
+				discord.ui.Button(
+					label="新たな募集を追加",
+					style=discord.ButtonStyle.primary,
+					custom_id="test"
+				)
+			)
 
 		if rc.msg_id:
 			try:
@@ -227,7 +255,7 @@ class GDBotController:
 				await it.followup.send(f"イベント作成中にエラーが発生しました: {e}", ephemeral=True)
 			return
 
-	async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict):
+	async def handle_recruit_submission(self, interaction: discord.Interaction, data: dict, message_to_delete: discord.Message):
 		"""
 		募集データが送信された際の処理 (新しいフォームから呼び出される)
 		"""
@@ -274,9 +302,10 @@ class GDBotController:
 			await interaction.followup.send("エラー: 保存された募集データの取得に失敗しました。", ephemeral=True)
 			
 		await self._ensure_header(ch)
-		await interaction.followup.send("募集が作成されました！", ephemeral=True)
+		
+		await message_to_delete.delete()
 
-	async def handle_recruit_update(self, interaction: discord.Interaction, recruit_id: int, data: dict):
+	async def handle_recruit_update(self, interaction: discord.Interaction, recruit_id: int, data: dict, message_to_delete: discord.Message):
 		"""
 		編集フォームから送信されたデータで既存の募集を更新する
 		"""
@@ -290,6 +319,7 @@ class GDBotController:
 		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
 		if updated_recruit_data:
 			await self._send_or_update_recruit_message(ch, updated_recruit_data)
-			await interaction.followup.send("募集を更新しました！", ephemeral=True)
 		else:
 			await interaction.followup.send("エラー: 募集の更新に失敗しました。", ephemeral=True)
+		
+		await message_to_delete.delete()
