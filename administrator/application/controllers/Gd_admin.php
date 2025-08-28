@@ -9,6 +9,7 @@ class Gd_admin extends CI_Controller {
 		$this->load->model('recruit_admin_model');
 		$this->load->helper('url'); // URLヘルパーをロード
 		$this->load->helper('form'); // フォームヘルパーをロード
+		$this->load->helper('download'); // downloadヘルパーをロード
 	}
 
 	/**
@@ -31,6 +32,7 @@ class Gd_admin extends CI_Controller {
 				'date_s' => $this->input->post('date_s'),
 				'place' => $this->input->post('place'),
 				'max_people' => $this->input->post('max_people'),
+				// 修正: データベースの新しいカラムに対応
 				'message' => $this->input->post('message'),
 				'mentor_needed' => $this->input->post('mentor_needed') ? 1 : 0,
 				'industry' => $this->input->post('industry'),
@@ -38,14 +40,14 @@ class Gd_admin extends CI_Controller {
 			);
 			$this->recruit_admin_model->update_recruit($id, $update_data);
 			redirect('gd_admin'); // 一覧ページにリダイレクト
+		} else {
+			// 通常のページ表示 (GET)
+			$data['recruit'] = $this->recruit_admin_model->get_recruit_by_id($id);
+			if (empty($data['recruit'])) {
+				show_404();
+			}
+			$this->load->view('gd_admin/edit', $data);
 		}
-
-		// 通常のページ表示 (GET)
-		$data['recruit'] = $this->recruit_admin_model->get_recruit_by_id($id);
-		if (empty($data['recruit'])) {
-			show_404();
-		}
-		$this->load->view('gd_admin/edit', $data);
 	}
 
 	/**
@@ -91,12 +93,14 @@ class Gd_admin extends CI_Controller {
 	 */
 	public function backup()
 	{
-		$backup_file_path = $this->recruit_admin_model->backup_database();
-		if ($backup_file_path) {
-			force_download($backup_file_path, NULL);
-		} else {
-			// エラー処理
-			show_error('データベースのバックアップに失敗しました。');
-		}
+		// データベース設定を読み込む
+		$database = $this->load->database('bot_db', TRUE);
+		$db_path = $database->database;
+		$db_name = basename($db_path);
+
+		// ファイルを読み込んで直接ダウンロード
+		$data = file_get_contents($db_path);
+		$name = 'db-backup-' . date('Y-m-d_H-i-s') . '-' . $db_name;
+		force_download($name, $data);
 	}
 }
