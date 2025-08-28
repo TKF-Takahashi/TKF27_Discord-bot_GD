@@ -77,4 +77,26 @@ class Gd_admin extends CI_Controller {
 
 		$this->load->view('gd_admin/settings', $data);
 	}
+
+	/**
+	 * アップデート関連ページ
+	 */
+	public function update()
+	{
+		$this->load->view('gd_admin/update');
+	}
+
+	/**
+	 * データベースバックアップのダウンロード
+	 */
+	public function backup()
+	{
+		$backup_file_path = $this->recruit_admin_model->backup_database();
+		if ($backup_file_path) {
+			force_download($backup_file_path, NULL);
+		} else {
+			// エラー処理
+			show_error('データベースのバックアップに失敗しました。');
+		}
+	}
 }

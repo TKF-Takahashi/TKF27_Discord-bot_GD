@@ -14,6 +14,7 @@
 <body>
     <h1>GD募集 管理画面</h1>
     <a href="<?php echo site_url('gd_admin/settings'); ?>">設定</a>
+	<a href="<?php echo site_url('gd_admin/update'); ?>">アップデート</a>
     <table>
         <thead>
             <tr>

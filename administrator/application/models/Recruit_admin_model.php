@@ -64,4 +64,24 @@ class Recruit_admin_model extends CI_Model {
 		// INSERT OR REPLACE に相当
 		$this->db_bot->replace('settings', $data);
 	}
+
+	/**
+	 * データベースをバックアップする
+	 */
+	public function backup_database()
+	{
+		$db_path = $this->db_bot->database; // データベースファイルへのパスを取得
+		$backup_dir = FCPATH . 'backups/'; // FCPATHはCodeIgniterの定数で、index.phpのパスを示す
+		$backup_file = $backup_dir . 'db-backup-' . date('Y-m-d_H-i-s') . '.db';
+
+		// バックアップディレクトリが存在しない場合は作成
+		if (!is_dir($backup_dir)) {
+			mkdir($backup_dir, 0755, TRUE);
+		}
+
+		if (copy($db_path, $backup_file)) {
+			return $backup_file;
+		}
+		return FALSE;
+	}
 }
