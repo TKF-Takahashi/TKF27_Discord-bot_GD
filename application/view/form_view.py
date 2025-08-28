@@ -108,17 +108,21 @@ class RecruitFormView(discord.ui.View):
 				except ValueError:
 					pass # パース失敗時は未設定のまま
 
+			# 修正: 既存のnoteカラムから、新しい個別のカラムにデータをマッピング
 			note = initial_data.get("note", "")
-			note_parts = note.split(' / ')
-			remaining_parts = []
-			for part in note_parts:
-				if part == "メンター希望":
-					self.values["mentor_needed"] = True
-				elif part.startswith("想定業界: "):
-					self.values["industry"] = part.replace("想定業界: ", "", 1)
-				else:
-					remaining_parts.append(part)
-			self.values["note_message"] = " ".join(remaining_parts) if remaining_parts else "未設定"
+			if note:
+				note_parts = note.split(' / ')
+				for part in note_parts:
+					if part == "メンター希望":
+						self.values["mentor_needed"] = True
+					elif part.startswith("想定業界: "):
+						self.values["industry"] = part.replace("想定業界: ", "", 1)
+					else:
+						self.values["note_message"] = part
+			
+			self.values["note_message"] = initial_data.get("message", "未設定")
+			self.values["mentor_needed"] = initial_data.get("mentor_needed", 0) == 1
+			self.values["industry"] = initial_data.get("industry", "未設定")
 		
 		self.add_main_buttons()
 
@@ -163,7 +167,6 @@ class RecruitFormView(discord.ui.View):
 			
 			mentor_status = "呼ぶ" if self.values['mentor_needed'] else "呼ばない"
 
-			# 修正: Noneを「未設定」に置き換える
 			place_val = self.values['place'] if self.values['place'] is not None else "未設定"
 			capacity_val = self.values['capacity'] if self.values['capacity'] is not None else "未設定"
 			message_val = self.values['note_message'] if self.values['note_message'] is not None else "未設定"
