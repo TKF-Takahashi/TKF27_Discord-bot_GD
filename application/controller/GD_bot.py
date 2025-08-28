@@ -109,7 +109,7 @@ class GDBotController:
 		if rc.mentor_needed and self.MENTOR_ROLE_ID:
 			mentor_role = ch.guild.get_role(self.MENTOR_ROLE_ID)
 			if mentor_role:
-				content = f"{mentor_role.mention}\n\n" + content
+				content = f"{mentor_role.mention}\n" + content
 		
 		# 終了した募集と、通常の募集でビューを分ける
 		if rc.is_expired():
