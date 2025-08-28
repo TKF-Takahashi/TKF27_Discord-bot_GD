@@ -57,4 +57,19 @@ class Gd_admin extends CI_Controller {
 		$this->recruit_admin_model->delete_recruit($id);
 		redirect('gd_admin'); // 一覧ページにリダイレクト
 	}
+
+	/**
+	 * 設定ページ
+	 */
+	public function settings()
+	{
+		if ($this->input->post()) {
+			$mentor_role_id = $this->input->post('mentor_role_id');
+			$this->recruit_admin_model->set_setting('mentor_role_id', $mentor_role_id);
+			redirect('gd_admin/settings');
+		}
++
+		$data['mentor_role_id'] = $this->recruit_admin_model->get_setting('mentor_role_id')['value'] ?? '';
+		$this->load->view('gd_admin/settings', $data);
+	}
 }

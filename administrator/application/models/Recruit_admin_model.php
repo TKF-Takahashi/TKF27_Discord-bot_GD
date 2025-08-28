@@ -43,4 +43,25 @@ class Recruit_admin_model extends CI_Model {
 		$this->db_bot->where('id', $id);
 		return $this->db_bot->delete('recruits');
 	}
+
+	/**
+	 * 設定値を取得する
+	 */
+	public function get_setting($key)
+	{
+		return $this->db_bot->get_where('settings', array('key' => $key))->row_array();
+	}
+
+	/**
+	 * 設定値を保存または更新する
+	 */
+	public function set_setting($key, $value)
+	{
+		$data = array(
+			'key' => $key,
+			'value' => $value
+		);
+		// INSERT OR REPLACE に相当
+		$this->db_bot->replace('settings', $data);
+	}
 }
