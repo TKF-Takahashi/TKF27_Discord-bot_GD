@@ -100,6 +100,10 @@ class RecruitModel:
 	def __init__(self):
 		pass
 
+	async def get_setting(self, key: str) -> Union[str, None]:
+		from .database_manager import DatabaseManager
+		return await DatabaseManager.get_setting(key)
+
 	async def add_recruit(self, date_s: str, place: str, max_people: int, message: str, mentor_needed: bool, industry: str, thread_id: int, author_id: int, participants: list[int]) -> Union[int, None]:
 		query = """
 			INSERT INTO recruits (date_s, place, max_people, message, mentor_needed, industry, thread_id, author_id, participants)
