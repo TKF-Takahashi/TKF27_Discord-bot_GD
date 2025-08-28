@@ -28,7 +28,7 @@ class GDBotController:
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
 		# 編集権限を持つロールのIDをここに設定してください
-		self.EDIT_ROLE_ID = 123456789012345678 # 例：実際のロールIDに置き換えてください
+		self.EDIT_ROLE_ID = 123456789012345678 # ：実際のロールIDに置き換えてください
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
