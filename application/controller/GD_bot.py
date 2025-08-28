@@ -95,11 +95,13 @@ class GDBotController:
 			date_s=recruit_data['date_s'],
 			place=recruit_data['place'],
 			cap=recruit_data['max_people'],
-			note=recruit_data['note'],
+			message=recruit_data['message'],
+			mentor_needed=bool(recruit_data['mentor_needed']),
+			industry=recruit_data['industry'],
 			thread_id=recruit_data['thread_id'],
 			msg_id=recruit_data['msg_id'],
 			participants=participants_members,
-			author=author_member
+			author=author_member,
 		)
 
 		content = rc.block()
@@ -285,10 +287,12 @@ class GDBotController:
 			date_s=data['date_s'],
 			place=data['place'],
 			max_people=data['max_people'],
-			note=data['note'],
+			message=data['message'],
+			mentor_needed=data['mentor_needed'],
+			industry=data['industry'],
 			thread_id=th.id,
 			author_id=author_id,
-			participants=initial_participants
+			participants=initial_participants,
 		)
 
 		if new_recruit_id is None:
