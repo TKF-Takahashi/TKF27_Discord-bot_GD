@@ -109,10 +109,13 @@ class Gd_admin extends CI_Controller {
 	 */
 	public function export_csv()
 	{
+		$this->load->helper('file');
 		$csv_file_path = $this->recruit_admin_model->export_csv();
 		if (file_exists($csv_file_path)) {
 			$file_name = 'recruits_export_' . date('Y-m-d_H-i-s') . '.csv';
-			force_download($file_name, file_get_contents($csv_file_path));
+			// BOM付きUTF-8に変換
+			$data = "\xEF\xBB\xBF" . file_get_contents($csv_file_path);
+			force_download($file_name, $data);
 			unlink($csv_file_path); // 一時ファイルを削除
 		} else {
 			show_error('CSVファイルの作成に失敗しました。');
