@@ -32,7 +32,10 @@ class Gd_admin extends CI_Controller {
 				'date_s' => $this->input->post('date_s'),
 				'place' => $this->input->post('place'),
 				'max_people' => $this->input->post('max_people'),
-				'note' => $this->input->post('note'),
+				// 修正: データベースの新しいカラムに対応
+				'message' => $this->input->post('message'),
+				'mentor_needed' => $this->input->post('mentor_needed') ? 1 : 0,
+				'industry' => $this->input->post('industry'),
 				'participants' => $this->input->post('participants')
 			);
 			$this->recruit_admin_model->update_recruit($id, $update_data);
@@ -66,10 +69,13 @@ class Gd_admin extends CI_Controller {
 			$this->recruit_admin_model->set_setting('mentor_role_id', $mentor_role_id);
 			redirect('gd_admin/settings');
 		}
-
-		// 修正: データベースから値を取得し、存在しない場合は空文字列を返す
+		
 		$setting = $this->recruit_admin_model->get_setting('mentor_role_id');
-		$data['mentor_role_id'] = $setting['value'] ?? '';
+		if ($setting) {
+			$data['mentor_role_id'] = $setting['value'];
+		} else {
+			$data['mentor_role_id'] = '';
+		}
 
 		$this->load->view('gd_admin/settings', $data);
 	}
@@ -87,12 +93,14 @@ class Gd_admin extends CI_Controller {
 	 */
 	public function backup()
 	{
-		$backup_file_path = $this->recruit_admin_model->backup_database();
-		if ($backup_file_path) {
-			force_download($backup_file_path, NULL);
-		} else {
-			// エラー処理
-			show_error('データベースのバックアップに失敗しました。');
-		}
+		// データベース設定を読み込む
+		$database = $this->load->database('bot_db', TRUE);
+		$db_path = $database->database;
+		$db_name = basename($db_path);
+
+		// ファイルを読み込んで直接ダウンロード
+		$data = file_get_contents($db_path);
+		$name = 'db-backup-' . date('Y-m-d_H-i-s') . '-' . $db_name;
+		force_download($name, $data);
 	}
 }
