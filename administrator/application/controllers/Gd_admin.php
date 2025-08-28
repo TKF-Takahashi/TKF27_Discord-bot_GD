@@ -103,4 +103,19 @@ class Gd_admin extends CI_Controller {
 		$name = 'db-backup-' . date('Y-m-d_H-i-s') . '-' . $db_name;
 		force_download($name, $data);
 	}
+
+	/**
+	 * データベースをCSVでダウンロード
+	 */
+	public function export_csv()
+	{
+		$csv_file_path = $this->recruit_admin_model->export_csv();
+		if (file_exists($csv_file_path)) {
+			$file_name = 'recruits_export_' . date('Y-m-d_H-i-s') . '.csv';
+			force_download($file_name, file_get_contents($csv_file_path));
+			unlink($csv_file_path); // 一時ファイルを削除
+		} else {
+			show_error('CSVファイルの作成に失敗しました。');
+		}
+	}
 }
