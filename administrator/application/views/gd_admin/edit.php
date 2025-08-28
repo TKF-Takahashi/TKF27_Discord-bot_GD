@@ -27,8 +27,16 @@
 			<input type="text" name="max_people" value="<?php echo $recruit['max_people']; ?>">
 		</div>
 		<div class="form-group">
-			<label for="note">備考</label>
-			<textarea name="note"><?php echo htmlspecialchars($recruit['note'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+			<label for="message">メッセージ</label>
+			<textarea name="message"><?php echo htmlspecialchars($recruit['message'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+		</div>
+		<div class="form-group">
+			<label for="mentor_needed">メンター希望有無</label>
+			<input type="checkbox" name="mentor_needed" value="1" <?php echo ($recruit['mentor_needed'] == 1) ? 'checked' : ''; ?>>
+		</div>
+		<div class="form-group">
+			<label for="industry">想定業界</label>
+			<input type="text" name="industry" value="<?php echo htmlspecialchars($recruit['industry'], ENT_QUOTES, 'UTF-8'); ?>">
 		</div>
 		<div class="form-group">
 			<label for="participants">参加者 (JSON形式)</label>
