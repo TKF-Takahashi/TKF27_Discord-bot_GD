@@ -183,8 +183,12 @@ class GDBotController:
 			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
 
 		# 修正: ボットが起動した後にデータベースからメンターロールIDを読み込む
-		mentor_role_id_str = await self.recruit_model.get_setting('mentor_role_id')
-		self.MENTOR_ROLE_ID = int(mentor_role_id_str) if mentor_role_id_str else None
+		try:
+			mentor_role_id_str = await self.recruit_model.get_setting('mentor_role_id')
+			self.MENTOR_ROLE_ID = int(mentor_role_id_str) if mentor_role_id_str else None
+		except (ValueError, TypeError) as e:
+			print(f"メンターロールIDの読み込み中にエラーが発生しました: {e}")
+			self.MENTOR_ROLE_ID = None
 
 		all_recruits = await self.recruit_model.get_all_recruits()
 		for recruit_data in all_recruits:
@@ -206,7 +210,11 @@ class GDBotController:
 		if custom_id == "test":
 			form_view = RecruitFormView(self)
 			embed = form_view.create_embed()
-			await it.response.send_message(embed=embed, view=form_view, ephemeral=True)
+			try:
+				await it.response.send_message(embed=embed, view=form_view, ephemeral=True)
+			except discord.errors.NotFound:
+				print(f"インタラクションエラー: 'Unknown interaction' - custom_id: {custom_id}")
+				return
 			return
 
 		if ":" not in custom_id:
