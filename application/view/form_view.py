@@ -47,8 +47,18 @@ class MinuteSelect(discord.ui.Select):
 class IndustrySelect(discord.ui.Select):
 	def __init__(self, default_industry: str = None):
 		options = [
+			discord.SelectOption(label="メーカー", value="メーカー"),
+			discord.SelectOption(label="コンサル", value="コンサル"),
+			discord.SelectOption(label="インフラ", value="インフラ"),
+			discord.SelectOption(label="金融", value="金融"),
+			discord.SelectOption(label="人材", value="人材"),
+			discord.SelectOption(label="官公庁", value="官公庁"),
 			discord.SelectOption(label="IT/通信", value="IT/通信"),
-			discord.SelectOption(label="コンサル", value="コンサル")
+			discord.SelectOption(label="総合商社・専門商社", value="総合商社・専門商社"),
+			discord.SelectOption(label="広告・出版・マスコミ", value="広告・出版・マスコミ"),
+			discord.SelectOption(label="デベロッパー・不動産・建築", value="デベロッパー・不動産・建築"),
+			discord.SelectOption(label="航空・鉄道・海運・その他運輸", value="航空・鉄道・海運・その他運輸"),
+			discord.SelectOption(label="保険会社", value="保険会社"),
 		]
 		if default_industry and default_industry != "未設定":
 			for option in options:
