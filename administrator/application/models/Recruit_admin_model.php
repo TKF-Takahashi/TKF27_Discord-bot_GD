@@ -66,22 +66,17 @@ class Recruit_admin_model extends CI_Model {
 	}
 
 	/**
-	 * データベースをバックアップする
+	 * データベースをCSV形式でエクスポートする
 	 */
-	public function backup_database()
+	public function export_csv()
 	{
-		$db_path = $this->db_bot->database; // データベースファイルへのパスを取得
-		$backup_dir = FCPATH . 'backups/'; // FCPATHはCodeIgniterの定数で、index.phpのパスを示す
-		$backup_file = $backup_dir . 'db-backup-' . date('Y-m-d_H-i-s') . '.db';
+		$db_path = $this->db_bot->database;
+		$csv_file_path = tempnam(sys_get_temp_dir(), 'csv_export_');
+		
+		// sqlite3コマンドを使用してCSVファイルを作成
+		$command = "sqlite3 -header -csv \"{$db_path}\" \"SELECT * FROM recruits;\" > \"{$csv_file_path}\"";
+		exec($command);
 
-		// バックアップディレクトリが存在しない場合は作成
-		if (!is_dir($backup_dir)) {
-			mkdir($backup_dir, 0755, TRUE);
-		}
-
-		if (copy($db_path, $backup_file)) {
-			return $backup_file;
-		}
-		return FALSE;
+		return $csv_file_path;
 	}
 }
