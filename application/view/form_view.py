@@ -156,9 +156,14 @@ class RecruitFormView(discord.ui.View):
 		
 		if self.current_screen == "note":
 			embed.description = "備考の各項目を設定してください。"
-			embed.add_field(name="✉️ メッセージ", value=self.values['note_message'], inline=False)
-			embed.add_field(name="🤝 メンター有無", value="呼ぶ" if self.values['mentor_needed'] else "呼ばない", inline=False)
-			embed.add_field(name="🏢 想定業界", value=self.values['industry'], inline=False)
+			
+			message_val = f"✅ {self.values['note_message']}" if self.values['note_message'] != "未設定" else "⚪️ 未設定"
+			mentor_status = f"✅ {'呼ぶ' if self.values['mentor_needed'] else '呼ばない'}"
+			industry_val = f"✅ {self.values['industry']}" if self.values['industry'] != "未設定" else "⚪️ 未設定"
+			
+			embed.add_field(name="✉️ メッセージ", value=message_val, inline=False)
+			embed.add_field(name="🤝 メンター有無", value=mentor_status, inline=False)
+			embed.add_field(name="🏢 想定業界", value=industry_val, inline=False)
 		else:
 			embed.description = "下のボタンを押して各項目を入力してください。"
 			
@@ -178,11 +183,17 @@ class RecruitFormView(discord.ui.View):
 			industry_val = f"✅ {self.values['industry']}" if self.values['industry'] != "未設定" else "⚪️ 未設定"
 
 			embed.add_field(name="📅 日時", value=datetime_val, inline=False)
+			embed.add_field(name="---", value="---", inline=False)
 			embed.add_field(name="📍 場所", value=place_val, inline=False)
+			embed.add_field(name="---", value="---", inline=False)
 			embed.add_field(name="👥 定員", value=capacity_val, inline=False)
+			embed.add_field(name="---", value="---", inline=False)
 			embed.add_field(name="✉️ メッセージ", value=message_val, inline=False)
+			embed.add_field(name="---", value="---", inline=False)
 			embed.add_field(name="🤝 メンター有無", value=mentor_status, inline=False)
+			embed.add_field(name="---", value="---", inline=False)
 			embed.add_field(name="🏢 想定業界", value=industry_val, inline=False)
+			embed.add_field(name="---", value="---", inline=False)
 		return embed
 
 	async def update_message(self, interaction: discord.Interaction):
