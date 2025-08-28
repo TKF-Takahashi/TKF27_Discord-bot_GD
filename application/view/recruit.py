@@ -77,6 +77,7 @@ class JoinLeaveButtons(discord.ui.View):
 			await self.controller._send_or_update_recruit_message(channel, updated_recruit_data)
 
 	async def edit_callback(self, interaction: discord.Interaction):
+		# インタラクションを受け付けたことを示すためにdeferを先に実行
 		await interaction.response.defer(ephemeral=True)
 
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
@@ -88,18 +89,16 @@ class JoinLeaveButtons(discord.ui.View):
 		author_id = recruit_data.get('author_id')
 		edit_role_id = self.controller.EDIT_ROLE_ID
 
-		has_role = any(role.id == edit_role_id for role in user.roles)
-		is_author = user.id == author_id
+		# 権限チェック
+		is_authorized = user.id == author_id or any(role.id == edit_role_id for role in user.roles)
 
-		if not is_author and not has_role:
+		if not is_authorized:
 			await interaction.followup.send("あなたには、この募集を編集する権限がありません。", ephemeral=True)
-			return
-		
-		await interaction.response.defer(ephemeral=True) # 応答を保留
-
-		form_view = RecruitFormView(self.controller, initial_data=recruit_data, recruit_id=self.recruit_id)
-		embed = form_view.create_embed()
-		await interaction.followup.send(embed=embed, view=form_view, ephemeral=True)
+		else:
+			from application.view.form_view import RecruitFormView
+			form_view = RecruitFormView(self.controller, initial_data=recruit_data, recruit_id=self.recruit_id)
+			embed = form_view.create_embed()
+			await interaction.followup.send(embed=embed, view=form_view, ephemeral=True)
 
 class MakeButton(discord.ui.Button):
 	"""ヘッダービュー用の「募集を作成」ボタン。"""
