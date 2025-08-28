@@ -33,13 +33,13 @@ class DateInputModal(discord.ui.Modal, title="日付入力"):
 
 	month_input = discord.ui.TextInput(
 		label="月 (1-12の数字)",
-		placeholder="例: 8",
+		placeholder="",
 		required=True,
 		max_length=2
 	)
 	day_input = discord.ui.TextInput(
 		label="日 (1-31の数字)",
-		placeholder="例: 26",
+		placeholder="",
 		required=True,
 		max_length=2
 	)
