@@ -34,11 +34,6 @@ class GDBotController:
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
 
-		# データベースからメンターロールIDを読み込む
-		async def _load_mentor_role_id():
-			self.MENTOR_ROLE_ID = int(await self.recruit_model.get_setting('mentor_role_id')) if await self.recruit_model.get_setting('mentor_role_id') else None
-		self.bot.loop.create_task(_load_mentor_role_id())
-
 	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
 		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
 		current_recruits = await self.recruit_model.get_all_recruits()
@@ -186,6 +181,10 @@ class GDBotController:
 			print("⚠ チャンネルトピック設定権限がありません。")
 		except Exception as e:
 			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
+
+		# 修正: ボットが起動した後にデータベースからメンターロールIDを読み込む
+		mentor_role_id_str = await self.recruit_model.get_setting('mentor_role_id')
+		self.MENTOR_ROLE_ID = int(mentor_role_id_str) if mentor_role_id_str else None
 
 		all_recruits = await self.recruit_model.get_all_recruits()
 		for recruit_data in all_recruits:
