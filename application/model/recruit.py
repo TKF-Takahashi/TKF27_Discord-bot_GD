@@ -61,10 +61,15 @@ class Recruit:
 			info_lines.append(f"({filled_slots}/{self.max_people}名)")
 			info_lines.append("-----------------------------")
 			if self.author:
-				info_lines.append(f"【募集者】  {self.author.display_name}")
+				info_lines.append(f"👤 募集者：{self.author.display_name}")
 			else:
-				info_lines.append(f"【募集者】  不明なユーザー")
-			info_lines.append(f"【メッセージ】  {self.message}" if self.message else "【メッセージ】  なし")
+				info_lines.append(f"👤 募集者：不明なユーザー")
+			info_lines.append("-----------------------------")
+			info_lines.append("【場所】")
+			info_lines.append(self.place)
+			info_lines.append("-----------------------------")
+			info_lines.append("【メッセージ】")
+			info_lines.append(self.message if self.message else "なし")
 			info_lines.append("-----------------------------")
 			info_block = "```\n" + "\n".join(info_lines) + "\n```"
 			return f"> {header_line}\n{info_block}"
@@ -75,12 +80,17 @@ class Recruit:
 		info_lines.append(f"({filled_slots}/{self.max_people}名)  [{slot_emojis}]")
 		info_lines.append("-----------------------------")
 		if self.author:
-			info_lines.append(f"【募集者】  {self.author.display_name}")
+			info_lines.append(f"👤 募集者：{self.author.display_name}")
 		else:
-			info_lines.append(f"【募集者】  不明なユーザー")
-		info_lines.append(f"【メッセージ】  {self.message}" if self.message else "【メッセージ】  なし")
+			info_lines.append(f"👤 募集者：不明なユーザー")
 		info_lines.append("-----------------------------")
-		
+		info_lines.append("【場所】")
+		info_lines.append(self.place)
+		info_lines.append("-----------------------------")
+		info_lines.append("【メッセージ】")
+		info_lines.append(self.message if self.message else "なし")
+		info_lines.append("-----------------------------")
+
 		if self.mentor_needed:
 			info_lines.append("🤝メンター希望：ON")
 		if self.industry:
@@ -89,10 +99,10 @@ class Recruit:
 		info_lines.append("🟡 満員" if self.is_full() else "⬜ 募集中")
 		
 		participants_text = ", ".join(p.display_name for p in self.participants) if self.participants else "なし"
-		info_lines.append(f"👥 参加者: {participants_text}")
+		info_lines.append(f"👥 参加者：{participants_text}")
 
 		mentors_text = ", ".join(m.display_name for m in self.mentors) if self.mentors else "なし"
-		info_lines.append(f"🤝 メンター: {mentors_text}")
+		info_lines.append(f"🤝 メンター：{mentors_text}")
 		
 		info_block = "```\n" + "\n".join(info_lines) + "\n```"
 
