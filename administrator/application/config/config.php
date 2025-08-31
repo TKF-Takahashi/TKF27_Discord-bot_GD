@@ -368,7 +368,7 @@ $config['encryption_key'] = 'aitogieoqwertyuifjdleobh5dwo85g0'; // 'YOUR_VERY_SE
 |
 */
 $config['sess_driver'] = 'files';
-$config['sess_cookie_name'] = 'ci_session';
+$config['sess_cookie_name'] = 'ci_admin_session'; // クッキー名を変更
 $config['sess_expiration'] = 7200;
 $config['sess_save_path'] = APPPATH . 'cache/';
 $config['sess_match_ip'] = FALSE;
@@ -392,9 +392,9 @@ $config['sess_regenerate_destroy'] = FALSE;
 */
 $config['cookie_prefix']	= '';
 $config['cookie_domain']	= '';
-$config['cookie_path']		= '/';
-$config['cookie_secure']	= FALSE;
-$config['cookie_httponly'] 	= FALSE;
+$config['cookie_path']		= '/'; // サイト全体でクッキーを有効にする
+$config['cookie_secure']	= FALSE; // HTTPSでない場合は必ずFALSE
+$config['cookie_httponly'] 	= TRUE; // セキュリティ向上のためTRUE
 
 /*
 |--------------------------------------------------------------------------
