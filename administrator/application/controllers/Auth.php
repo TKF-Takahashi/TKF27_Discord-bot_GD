@@ -1,15 +1,13 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Auth extends CI_Controller {
+// 継承元を CI_Controller から Public_Controller に変更
+class Auth extends Public_Controller {
 
     public function __construct()
     {
         parent::__construct();
         $this->load->model('auth_model');
-        $this->load->library('session');
-        $this->load->helper('url');
-        $this->load->helper('form');
     }
 
     public function login()

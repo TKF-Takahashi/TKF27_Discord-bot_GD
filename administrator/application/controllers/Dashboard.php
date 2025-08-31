@@ -1,16 +1,13 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Dashboard extends CI_Controller {
+// 継承元を CI_Controller から MY_Controller に変更
+class Dashboard extends MY_Controller {
 
     public function __construct()
     {
+        // MY_Controllerのコンストラクタが先にログインチェックを行う
         parent::__construct();
-        $this->load->library('session');
-        $this->load->helper('url');
-        if (!$this->session->userdata('is_logged_in')) {
-            redirect('auth/login');
-        }
     }
 
     public function index()

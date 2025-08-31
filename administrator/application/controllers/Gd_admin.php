@@ -1,31 +1,19 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Gd_admin extends CI_Controller {
+// 継承元を CI_Controller から MY_Controller に変更
+class Gd_admin extends MY_Controller {
 
 	public function __construct()
 	{
 		parent::__construct();
-		// ログインチェック
-		$this->load->library('session');
-		if (!$this->session->userdata('is_logged_in')) {
-            redirect('auth/login');
-        }
-
+		// MY_Controllerでログインチェック等は完了している
 		$this->load->model('recruit_admin_model');
-		$this->load->helper('url');
 		$this->load->helper('form');
 		$this->load->helper('download');
 	}
 
-	private function _check_admin()
-    {
-        if ($this->session->userdata('role') !== 'admin') {
-            show_error('You do not have permission to access this page.', 403);
-            return false;
-        }
-        return true;
-    }
+	// _check_admin() はMY_Controllerに移動したため削除
 
 	public function index()
 	{
@@ -44,7 +32,6 @@ class Gd_admin extends CI_Controller {
 
 		$this->load->library('form_validation');
 		$this->form_validation->set_rules('date_s', '日時', 'required');
-		// ... 他のバリデーションルールもここに追加 ...
 
 		if ($this->form_validation->run() === FALSE) {
 			$data['title'] = '募集編集';
