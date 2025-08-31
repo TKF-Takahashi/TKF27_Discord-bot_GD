@@ -314,7 +314,7 @@ $config['cache_query_string'] = FALSE;
 | https://codeigniter.com/user_guide/libraries/encryption.html
 |
 */
-$config['encryption_key'] = '';
+$config['encryption_key'] = 'YOUR_VERY_SECRET_ENCRYPTION_KEY'; // 'YOUR_VERY_SECRET_ENCRYPTION_KEY' の部分を、32文字のランダムな文字列に書き換えてください。
 
 /*
 |--------------------------------------------------------------------------
