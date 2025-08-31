@@ -46,9 +46,9 @@ $config['index_page'] = 'index.php';
 | URI string.  The default setting of 'REQUEST_URI' works for most servers.
 | If your links do not seem to work, try one of the other delicious flavors:
 |
-| 'REQUEST_URI'    Uses $_SERVER['REQUEST_URI']
+| 'REQUEST_URI'	Uses $_SERVER['REQUEST_URI']
 | 'QUERY_STRING'   Uses $_SERVER['QUERY_STRING']
-| 'PATH_INFO'      Uses $_SERVER['PATH_INFO']
+| 'PATH_INFO'	  Uses $_SERVER['PATH_INFO']
 |
 | WARNING: If you set this to 'PATH_INFO', URIs will always be URL-decoded!
 */
@@ -100,7 +100,7 @@ $config['charset'] = 'UTF-8';
 | setting this variable to TRUE (boolean).  See the user guide for details.
 |
 */
-$config['enable_hooks'] = FALSE;
+$config['enable_hooks'] = TRUE;
 
 /*
 |--------------------------------------------------------------------------
@@ -248,7 +248,7 @@ $config['log_file_extension'] = '';
 | The file system permissions to be applied on newly created log files.
 |
 | IMPORTANT: This MUST be an integer (no quotes) and you MUST use octal
-|            integer notation (i.e. 0700, 0644, etc.)
+|			integer notation (i.e. 0700, 0644, etc.)
 */
 $config['log_file_permissions'] = 0644;
 
@@ -293,12 +293,12 @@ $config['cache_path'] = '';
 | Whether to take the URL query string into consideration when generating
 | output cache files. Valid options are:
 |
-|	FALSE      = Disabled
-|	TRUE       = Enabled, take all query parameters into account.
-|	             Please be aware that this may result in numerous cache
-|	             files generated for the same page over and over again.
+|	FALSE	  = Disabled
+|	TRUE	   = Enabled, take all query parameters into account.
+|				 Please be aware that this may result in numerous cache
+|				 files generated for the same page over and over again.
 |	array('q') = Enabled, but only take into account the specified list
-|	             of query parameters.
+|				 of query parameters.
 |
 */
 $config['cache_query_string'] = FALSE;
@@ -351,7 +351,7 @@ $config['encryption_key'] = 'aitogieoqwertyuifjdleobh5dwo85g0'; // 'YOUR_VERY_SE
 |	Whether to match the user's IP address when reading the session data.
 |
 |	WARNING: If you're using the database driver, don't forget to update
-|	         your session table's PRIMARY KEY when changing this setting.
+|			 your session table's PRIMARY KEY when changing this setting.
 |
 | 'sess_time_to_update'
 |
@@ -382,12 +382,12 @@ $config['sess_regenerate_destroy'] = FALSE;
 |
 | 'cookie_prefix'   = Set a cookie name prefix if you need to avoid collisions
 | 'cookie_domain'   = Set to .your-domain.com for site-wide cookies
-| 'cookie_path'     = Typically will be a forward slash
+| 'cookie_path'	 = Typically will be a forward slash
 | 'cookie_secure'   = Cookie will only be set if a secure HTTPS connection exists.
 | 'cookie_httponly' = Cookie will only be accessible via HTTP(S) (no javascript)
 |
 | Note: These settings (with the exception of 'cookie_prefix' and
-|       'cookie_httponly') will also affect sessions.
+|	   'cookie_httponly') will also affect sessions.
 |
 */
 $config['cookie_prefix']	= '';
@@ -419,7 +419,7 @@ $config['standardize_newlines'] = FALSE;
 | COOKIE data is encountered
 |
 | WARNING: This feature is DEPRECATED and currently available only
-|          for backwards compatibility purposes!
+|		  for backwards compatibility purposes!
 |
 */
 $config['global_xss_filtering'] = FALSE;
