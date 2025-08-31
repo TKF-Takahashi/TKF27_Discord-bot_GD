@@ -14,11 +14,18 @@ class MentorJoinChoiceView(discord.ui.View):
 		self.controller = controller
 		self.recruit_id = recruit_id
 
+	async def update_main_message(self):
+		"""募集メッセージを更新する共通処理"""
+		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
+		channel = self.controller.bot.get_channel(self.controller.channel_id)
+		if updated_recruit_data and channel:
+			await self.controller._send_or_update_recruit_message(channel, updated_recruit_data)
+
 	@discord.ui.button(label="FB要員として参加", style=discord.ButtonStyle.primary, custom_id="join_as_mentor")
 	async def join_as_mentor_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		if not recruit_data:
-			await interaction.response.send_message("エラー: 募集が存在しません。", ephemeral=True)
+			await interaction.response.edit_message(content="エラー: 募集が存在しません。", view=None)
 			return
 
 		user_id = interaction.user.id
@@ -26,37 +33,31 @@ class MentorJoinChoiceView(discord.ui.View):
 		participants = recruit_data.get('participants', [])
 
 		if user_id in mentors:
-			await interaction.response.send_message("あなたは既にFB要員として参加しています。", ephemeral=True)
+			await interaction.response.edit_message(content="あなたは既にFB要員として参加しています。", view=None)
 			return
 		if user_id in participants:
-			await interaction.response.send_message("あなたは既にGDメンバーとして参加しています。一度参加を取り消してから再度お試しください。", ephemeral=True)
+			await interaction.response.edit_message(content="あなたは既にGDメンバーとして参加しています。一度参加を取り消してから再度お試しください。", view=None)
 			return
 
 		mentors.append(user_id)
 		await self.controller.recruit_model.update_recruit_mentors(self.recruit_id, mentors)
+		await self.update_main_message()
 		
-		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
-		channel = self.controller.bot.get_channel(self.controller.channel_id)
-		if updated_recruit_data and channel:
-			await self.controller._send_or_update_recruit_message(channel, updated_recruit_data)
-		
-		await interaction.response.send_message("FB要員として参加しました。", ephemeral=True)
+		# [修正点2] 元のメッセージを編集して、ボタンを消す
+		await interaction.response.edit_message(content="FB要員として参加しました。", view=None)
 		self.stop()
 
 	@discord.ui.button(label="GDメンバーとして参加", style=discord.ButtonStyle.secondary, custom_id="join_as_member")
 	async def join_as_member_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+		# [修正点2] 元のメッセージを編集して、ボタンを消す
+		await interaction.response.edit_message(content="GDメンバーとして参加処理中です...", view=None)
 		# JoinLeaveButtonsの通常の参加処理を呼び出す
 		await JoinLeaveButtons(self.controller, self.recruit_id)._perform_join(interaction)
-		await interaction.response.send_message("GDメンバーとして参加しました。", ephemeral=True)
 		self.stop()
 	
 	async def on_timeout(self):
-		# タイムアウトした場合、ボタンを無効化する
-		for item in self.children:
-			item.disabled = True
-		# 元のメッセージを編集してボタンを無効化
-		# このビューはephemeralなので、interaction.edit_original_response()は使えない
-		pass
+		# on_timeoutではephemeralなメッセージは編集できないため、何もしない
+		self.stop()
 
 class JoinLeaveButtons(discord.ui.View):
 	"""
@@ -83,10 +84,7 @@ class JoinLeaveButtons(discord.ui.View):
 		"""GDメンバーとして参加する共通ロジック"""
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		if not recruit_data:
-			if not interaction.response.is_done():
-				await interaction.response.send_message("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
-			else:
-				await interaction.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
+			await interaction.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
 			return
 
 		user_id = interaction.user.id
@@ -94,24 +92,15 @@ class JoinLeaveButtons(discord.ui.View):
 		mentors = recruit_data.get('mentors', [])
 
 		if user_id in participants:
-			if not interaction.response.is_done():
-				await interaction.response.send_message("あなたは既にGDメンバーとして参加しています。", ephemeral=True)
-			else:
-				await interaction.followup.send("あなたは既にGDメンバーとして参加しています。", ephemeral=True)
+			await interaction.followup.send("あなたは既にGDメンバーとして参加しています。", ephemeral=True)
 			return
 		
 		if user_id in mentors:
-			if not interaction.response.is_done():
-				await interaction.response.send_message("あなたは既にFB要員として参加しています。一度参加を取り消してから再度お試しください。", ephemeral=True)
-			else:
-				await interaction.followup.send("あなたは既にFB要員として参加しています。一度参加を取り消してから再度お試しください。", ephemeral=True)
+			await interaction.followup.send("あなたは既にFB要員として参加しています。一度参加を取り消してから再度お試しください。", ephemeral=True)
 			return
 
 		if len(participants) >= recruit_data['max_people']:
-			if not interaction.response.is_done():
-				await interaction.response.send_message("この募集は満員です。", ephemeral=True)
-			else:
-				await interaction.followup.send("この募集は満員です。", ephemeral=True)
+			await interaction.followup.send("この募集は満員です。", ephemeral=True)
 			return
 
 		participants.append(user_id)
@@ -121,6 +110,9 @@ class JoinLeaveButtons(discord.ui.View):
 		channel = self.controller.bot.get_channel(self.controller.channel_id)
 		if updated_recruit_data and channel:
 			await self.controller._send_or_update_recruit_message(channel, updated_recruit_data)
+		
+		await interaction.followup.send("GDメンバーとして参加しました。", ephemeral=True)
+
 
 	async def join_callback(self, interaction: discord.Interaction):
 		await interaction.response.defer(ephemeral=True)
@@ -131,22 +123,18 @@ class JoinLeaveButtons(discord.ui.View):
 			user_has_mentor_role = any(role.id == mentor_role_id for role in interaction.user.roles)
 
 		if user_has_mentor_role:
-			# メンターロールを持っている場合、選択肢を提示
 			view = MentorJoinChoiceView(self.controller, self.recruit_id)
 			await interaction.followup.send("参加方法を選択してください。", view=view, ephemeral=True)
 		else:
-			# 持っていない場合、通常の参加処理
 			await self._perform_join(interaction)
-			await interaction.followup.send("参加しました。", ephemeral=True)
-
 
 	async def leave_callback(self, interaction: discord.Interaction):
+		# [修正点1, 4] 不要なログをなくし、処理をシンプルにする
 		await interaction.response.defer(ephemeral=True)
 		
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		if not recruit_data:
-			await interaction.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
-			return
+			return # 募集がない場合は何もせず終了
 
 		user_id = interaction.user.id
 		participants = recruit_data.get('participants', [])
@@ -161,17 +149,13 @@ class JoinLeaveButtons(discord.ui.View):
 			mentors.remove(user_id)
 			await self.controller.recruit_model.update_recruit_mentors(self.recruit_id, mentors)
 			removed = True
-		else:
-			await interaction.followup.send("あなたはこの募集に参加していません。", ephemeral=True)
-			return
 		
+		# 参加者リストまたはメンターリストから削除された場合のみメッセージを更新
 		if removed:
-			await interaction.followup.send("参加を取り消しました。", ephemeral=True)
-
-		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
-		channel = self.controller.bot.get_channel(self.controller.channel_id)
-		if updated_recruit_data and channel:
-			await self.controller._send_or_update_recruit_message(channel, updated_recruit_data)
+			updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
+			channel = self.controller.bot.get_channel(self.controller.channel_id)
+			if updated_recruit_data and channel:
+				await self.controller._send_or_update_recruit_message(channel, updated_recruit_data)
 
 	async def edit_callback(self, interaction: discord.Interaction):
 		await interaction.response.defer(ephemeral=True)
