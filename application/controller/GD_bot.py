@@ -405,6 +405,19 @@ class GDBotController:
 
 		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
 		if updated_recruit_data:
+			# [修正点] スレッド名の更新処理を追加
+			try:
+				thread = await self.bot.fetch_channel(updated_recruit_data['thread_id'])
+				if isinstance(thread, discord.Thread):
+					new_thread_name = f"🗨 {updated_recruit_data['date_s']} GD練習について"
+					await thread.edit(name=new_thread_name)
+			except discord.NotFound:
+				print(f"警告: スレッドID {updated_recruit_data['thread_id']} が見つかりません。名前の更新をスキップします。")
+			except discord.Forbidden:
+				print(f"警告: スレッドID {updated_recruit_data['thread_id']} の名前を変更する権限がありません。")
+			except Exception as e:
+				print(f"スレッド名の編集中に予期せぬエラー: {e}")
+
 			await self._send_or_update_recruit_message(ch, updated_recruit_data)
 		else:
 			await interaction.followup.send("エラー: 募集の更新に失敗しました。", ephemeral=True)
