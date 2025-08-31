@@ -1,13 +1,15 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-// 継承元を CI_Controller から MY_Controller に変更
-class Dashboard extends MY_Controller {
+// 継承元を MY_Controller から CI_Controller に戻す
+class Dashboard extends CI_Controller {
 
 	public function __construct()
 	{
-		// MY_Controllerのコンストラクタが先にログインチェックを行う
 		parent::__construct();
+		// フックが認証を行うため、ここでのログインチェックは不要
+		$this->load->library('session');
+		$this->load->helper('url');
 	}
 
 	public function index()
