@@ -11,6 +11,7 @@ class Auth_model extends CI_Model {
 
     public function login($username, $password)
     {
+        // [修正] 'admin' という固定値だった部分を、引数の $username 変数に修正
         $this->db_bot->where('username', $username);
         $query = $this->db_bot->get('administrators');
         
