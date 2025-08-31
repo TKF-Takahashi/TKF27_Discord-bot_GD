@@ -63,6 +63,53 @@ class GDBotController:
 				print(f"定期チェック中にエラーが発生しました (募集ID: {recruit_data.get('id')}): {e}")
 				continue
 
+	@tasks.loop(minutes=5)
+	async def check_upcoming_recruits(self):
+		"""[修正点] 5分ごとに、1時間以内に開始する募集がないかチェックし通知するタスク"""
+		all_recruits = await self.recruit_model.get_all_recruits()
+		jst = pytz.timezone('Asia/Tokyo')
+		now_jst = datetime.now(jst)
+		one_hour_later = now_jst + timedelta(hours=1)
+
+		for r in all_recruits:
+			# 通知がまだ送信されておらず、かつ、開催時刻が1時間以内かチェック
+			if not r.get('notification_sent'):
+				try:
+					recruit_dt_naive = datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")
+					recruit_dt_jst = jst.localize(recruit_dt_naive)
+
+					if now_jst <= recruit_dt_jst < one_hour_later:
+						all_user_ids = r.get('participants', []) + r.get('mentors', [])
+						
+						ch = self.bot.get_channel(self.channel_id)
+						thread_url = f"https://discord.com/channels/{ch.guild.id}/{r['thread_id']}" if ch else "スレッドが見つかりません"
+
+						message = (
+							f"📢 **まもなくGD練習会が始まります**\n"
+							f"-----------------------------\n"
+							f"**日時:** {r['date_s']}\n"
+							f"**場所:** {r['place']}\n"
+							f"**スレッド:** {thread_url}\n"
+							f"-----------------------------\n"
+							f"準備をお願いします！"
+						)
+
+						for user_id in all_user_ids:
+							try:
+								user = await self.bot.fetch_user(user_id)
+								await user.send(message)
+							except discord.Forbidden:
+								print(f"警告: ユーザーID {user_id} にDMを送信できませんでした（ブロックされている可能性があります）。")
+							except Exception as e:
+								print(f"DM送信中に予期せぬエラー (ユーザーID: {user_id}): {e}")
+						
+						# 通知フラグをDBに保存
+						await self.recruit_model.mark_notification_as_sent(r['id'])
+
+				except (ValueError, KeyError) as e:
+					print(f"通知チェック中にエラー (募集ID: {r.get('id')}): {e}")
+					continue
+
 	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
 		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
 		current_recruits = await self.recruit_model.get_all_recruits()
@@ -236,6 +283,10 @@ class GDBotController:
 
 		if not self.check_expired_recruits.is_running():
 			self.check_expired_recruits.start()
+		
+		# [修正点] 通知タスクを開始
+		if not self.check_upcoming_recruits.is_running():
+			self.check_upcoming_recruits.start()
 
 		print("✅ ready")
 
@@ -405,7 +456,6 @@ class GDBotController:
 
 		updated_recruit_data = await self.recruit_model.get_recruit_by_id(recruit_id)
 		if updated_recruit_data:
-			# [修正点] スレッド名の更新処理を追加
 			try:
 				thread = await self.bot.fetch_channel(updated_recruit_data['thread_id'])
 				if isinstance(thread, discord.Thread):
