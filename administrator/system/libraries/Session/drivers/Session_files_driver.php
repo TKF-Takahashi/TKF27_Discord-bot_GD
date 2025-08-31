@@ -88,13 +88,19 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 	{
 		parent::__construct($params);
 
+        // ▼▼▼▼▼▼▼▼▼ デバッグコード ▼▼▼▼▼▼▼▼▼
+        log_message('debug', 'SESSION_DRIVER_CONFIG: Initializing with config: ' . print_r($this->_config, TRUE));
+        // ▲▲▲▲▲▲▲▲▲ デバッグコード ▲▲▲▲▲▲▲▲▲
+
 		if (isset($this->_config['save_path']))
 		{
 			$this->_save_path = $this->_config['save_path'];
 		}
 		else
 		{
+            // Fallback to php.ini setting
 			$this->_save_path = config_item('sess_save_path');
+            log_message('debug', 'SESSION_DRIVER_CONFIG: save_path not found in config, falling back to ini value: ' . $this->_save_path);
 		}
 	}
 
@@ -146,17 +152,6 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 		// A lock is acquired and released on write(), as that's the only time
 		// when a race condition can occur with this driver.
 		$this->_file_new = ! file_exists($this->_file_path.$session_id);
-        
-        // ▼▼▼▼▼▼▼▼▼ デバッグコード ▼▼▼▼▼▼▼▼▼
-        $log_path = $this->_file_path.$session_id;
-        log_message('debug', 'SESSION_READ: Attempting to read session file at: ' . $log_path);
-        if ($this->_file_new) {
-            log_message('debug', 'SESSION_READ: File does not exist.');
-            return '';
-        } else {
-             log_message('debug', 'SESSION_READ: File exists. Reading content.');
-        }
-        // ▲▲▲▲▲▲▲▲▲ デバッグコード ▲▲▲▲▲▲▲▲▲
 
 		return ($this->_file_new)
 			? ''
@@ -306,5 +301,4 @@ class CI_Session_files_driver extends CI_Session_driver implements SessionHandle
 
 		return $this->_success;
 	}
-
 }
