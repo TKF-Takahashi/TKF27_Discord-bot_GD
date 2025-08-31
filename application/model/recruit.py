@@ -14,7 +14,9 @@ class Recruit:
 	def __init__(self, rid: int, date_s: str, place: str, cap: int, message: str, mentor_needed: bool, industry: str,
 					thread_id: int,
 					author: Union[discord.Member, None],
-					msg_id: Union[int, None] = None, participants: Union[list[discord.Member], None] = None):
+					msg_id: Union[int, None] = None, 
+					participants: Union[list[discord.Member], None] = None,
+					mentors: Union[list[discord.Member], None] = None):
 		self.id = rid
 		self.date_str = date_s
 		self.place = place
@@ -23,6 +25,7 @@ class Recruit:
 		self.mentor_needed = mentor_needed
 		self.industry = industry
 		self.participants: list[discord.Member] = participants if participants is not None else []
+		self.mentors: list[discord.Member] = mentors if mentors is not None else []
 		self.thread_id = thread_id
 		self.msg_id = msg_id
 		self.author = author
@@ -31,7 +34,9 @@ class Recruit:
 		return len(self.participants) >= self.max_people
 
 	def is_joined(self, u: discord.Member) -> bool:
-		return u and any(p.id == u.id for p in self.participants)
+		is_participant = any(p.id == u.id for p in self.participants)
+		is_mentor = any(m.id == u.id for m in self.mentors)
+		return u and (is_participant or is_mentor)
 
 	def is_expired(self) -> bool:
 		try:
@@ -59,11 +64,9 @@ class Recruit:
 				info_lines.append(f"【募集者】  {self.author.display_name}")
 			else:
 				info_lines.append(f"【募集者】  不明なユーザー")
-			# 修正: f-stringとして正しく評価されるように修正
 			info_lines.append(f"【メッセージ】  {self.message}" if self.message else "【メッセージ】  なし")
 			info_lines.append("-----------------------------")
 			info_block = "```\n" + "\n".join(info_lines) + "\n```"
-			# ブロック引用符で囲み、文字を薄く（灰色に）見せる
 			return f"> {header_line}\n{info_block}"
 		
 		# 通常の募集の表示
@@ -87,6 +90,9 @@ class Recruit:
 		
 		participants_text = ", ".join(p.display_name for p in self.participants) if self.participants else "なし"
 		info_lines.append(f"👥 参加者: {participants_text}")
+
+		mentors_text = ", ".join(m.display_name for m in self.mentors) if self.mentors else "なし"
+		info_lines.append(f"🤝 メンター: {mentors_text}")
 		
 		info_block = "```\n" + "\n".join(info_lines) + "\n```"
 
@@ -106,12 +112,13 @@ class RecruitModel:
 
 	async def add_recruit(self, date_s: str, place: str, max_people: int, message: str, mentor_needed: bool, industry: str, thread_id: int, author_id: int, participants: list[int]) -> Union[int, None]:
 		query = """
-			INSERT INTO recruits (date_s, place, max_people, message, mentor_needed, industry, thread_id, author_id, participants)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO recruits (date_s, place, max_people, message, mentor_needed, industry, thread_id, author_id, participants, mentors)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		"""
 		participants_json = json.dumps(participants)
+		mentors_json = json.dumps([]) # 新規作成時はメンターは空
 		recruit_id = await DatabaseManager.execute_query(
-			query, (date_s, place, max_people, message, int(mentor_needed), industry, thread_id, author_id, participants_json)
+			query, (date_s, place, max_people, message, int(mentor_needed), industry, thread_id, author_id, participants_json, mentors_json)
 		)
 		return recruit_id
 
@@ -129,6 +136,7 @@ class RecruitModel:
 		rows = await DatabaseManager.fetch_all(query)
 		for row in rows:
 			row['participants'] = json.loads(row['participants']) if row['participants'] else []
+			row['mentors'] = json.loads(row.get('mentors', '[]')) if row.get('mentors') else []
 			row['mentor_needed'] = bool(row.get('mentor_needed'))
 		return rows
 
@@ -137,6 +145,7 @@ class RecruitModel:
 		row = await DatabaseManager.fetch_one(query, (recruit_id,))
 		if row:
 			row['participants'] = json.loads(row['participants']) if row['participants'] else []
+			row['mentors'] = json.loads(row.get('mentors', '[]')) if row.get('mentors') else []
 			row['mentor_needed'] = bool(row.get('mentor_needed'))
 		return row
 
@@ -144,6 +153,11 @@ class RecruitModel:
 		query = "UPDATE recruits SET participants = ? WHERE id = ?"
 		participants_json = json.dumps(participants_list)
 		await DatabaseManager.execute_query(query, (participants_json, recruit_id))
+
+	async def update_recruit_mentors(self, recruit_id: int, mentors_list: list[int]):
+		query = "UPDATE recruits SET mentors = ? WHERE id = ?"
+		mentors_json = json.dumps(mentors_list)
+		await DatabaseManager.execute_query(query, (mentors_json, recruit_id))
 
 	async def update_recruit_message_id(self, recruit_id: int, message_id: int):
 		query = "UPDATE recruits SET msg_id = ? WHERE id = ?"

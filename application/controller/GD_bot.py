@@ -29,6 +29,7 @@ class GDBotController:
 		self.header_msg_id: Union[int, None] = None
 		# 編集権限を持つロールのIDをここに設定してください
 		self.EDIT_ROLE_ID = 123456789012345678 # ：実際のロールIDに置き換えてください
+		self.MENTOR_ROLE_ID: Union[int, None] = None # on_readyで読み込む
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
@@ -72,9 +73,9 @@ class GDBotController:
 		"""
 		募集メッセージを送信または更新する。
 		"""
-		participants_members: list[discord.Member] = []
 		guild = ch.guild
-		for user_id in recruit_data['participants']:
+		participants_members: list[discord.Member] = []
+		for user_id in recruit_data.get('participants', []):
 			try:
 				member = await guild.fetch_member(user_id)
 				participants_members.append(member)
@@ -82,6 +83,16 @@ class GDBotController:
 				print(f"警告: 参加者ID {user_id} のメンバーが見つかりません。")
 			except Exception as e:
 				print(f"メンバー取得中に予期せぬエラー ({user_id}): {e}")
+
+		mentors_members: list[discord.Member] = []
+		for user_id in recruit_data.get('mentors', []):
+			try:
+				member = await guild.fetch_member(user_id)
+				mentors_members.append(member)
+			except discord.NotFound:
+				print(f"警告: メンターID {user_id} のメンバーが見つかりません。")
+			except Exception as e:
+				print(f"メンター取得中に予期せぬエラー ({user_id}): {e}")
 
 		author_member = None
 		if recruit_data.get('author_id'):
@@ -101,6 +112,7 @@ class GDBotController:
 			thread_id=recruit_data['thread_id'],
 			msg_id=recruit_data['msg_id'],
 			participants=participants_members,
+			mentors=mentors_members,
 			author=author_member,
 		)
 
@@ -111,7 +123,6 @@ class GDBotController:
 			if mentor_role:
 				content = f"{mentor_role.mention}\n" + content
 		
-		# 終了した募集と、通常の募集でビューを分ける
 		if rc.is_expired():
 			view = discord.ui.View(timeout=None)
 			view.add_item(
@@ -121,13 +132,6 @@ class GDBotController:
 					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
 				)
 			)
-			view.add_item(
-				discord.ui.Button(
-					label="新たな募集を追加",
-					style=discord.ButtonStyle.primary,
-					custom_id="test"
-				)
-			)
 		else:
 			view = JoinLeaveButtons(self, rc.id)
 			view.add_item(
@@ -135,13 +139,6 @@ class GDBotController:
 					label="スレッドへ",
 					style=discord.ButtonStyle.link,
 					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
-				)
-			)
-			view.add_item(
-				discord.ui.Button(
-					label="新たな募集を追加",
-					style=discord.ButtonStyle.primary,
-					custom_id="test"
 				)
 			)
 
@@ -182,7 +179,6 @@ class GDBotController:
 		except Exception as e:
 			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
 
-		# 修正: ボットが起動した後にデータベースからメンターロールIDを読み込む
 		try:
 			mentor_role_id_str = await self.recruit_model.get_setting('mentor_role_id')
 			self.MENTOR_ROLE_ID = int(mentor_role_id_str) if mentor_role_id_str else None
@@ -200,6 +196,7 @@ class GDBotController:
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
 		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:")):
+			# JoinLeaveButtonsの処理はそちらに任せる
 			return
 
 		if it.type.name != "component":
@@ -264,7 +261,7 @@ class GDBotController:
 					entity_type=entity_type,
 					channel=event_channel,
 					location=event_location,
-					description=recruit_data['note']
+					description=recruit_data.get('message', '')
 				)
 				await it.followup.send(f"イベント「{event_name}」を作成しました。", ephemeral=True)
 
