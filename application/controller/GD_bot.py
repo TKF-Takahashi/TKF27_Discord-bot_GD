@@ -132,6 +132,14 @@ class GDBotController:
 					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
 				)
 			)
+			# [修正点3] ボタンを再追加
+			view.add_item(
+				discord.ui.Button(
+					label="新たな募集を追加",
+					style=discord.ButtonStyle.primary,
+					custom_id="test"
+				)
+			)
 		else:
 			view = JoinLeaveButtons(self, rc.id)
 			view.add_item(
@@ -139,6 +147,14 @@ class GDBotController:
 					label="スレッドへ",
 					style=discord.ButtonStyle.link,
 					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
+				)
+			)
+			# [修正点3] ボタンを再追加
+			view.add_item(
+				discord.ui.Button(
+					label="新たな募集を追加",
+					style=discord.ButtonStyle.primary,
+					custom_id="test"
 				)
 			)
 
@@ -195,8 +211,8 @@ class GDBotController:
 
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
-		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:")):
-			# JoinLeaveButtonsの処理はそちらに任せる
+		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:", "join_as_mentor", "join_as_member")):
+			# JoinLeaveButtonsとMentorJoinChoiceViewの処理はそちらに任せる
 			return
 
 		if it.type.name != "component":
