@@ -1,7 +1,7 @@
 # application/controller/GD_bot.py
 import discord
 import asyncio
-from discord.ext import commands
+from discord.ext import commands, tasks
 from typing import Union, Set
 from datetime import datetime, timedelta
 import pytz
@@ -34,6 +34,34 @@ class GDBotController:
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
+
+	@tasks.loop(minutes=5)
+	async def check_expired_recruits(self):
+		"""
+		5分ごとに募集の期限切れをチェックし、更新するタスク
+		"""
+		ch = self.bot.get_channel(self.channel_id)
+		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
+			print("定期チェックエラー: チャンネルが見つかりません。")
+			return
+		
+		all_recruits = await self.recruit_model.get_all_recruits()
+		jst = pytz.timezone('Asia/Tokyo')
+		now_jst = datetime.now(jst)
+
+		for recruit_data in all_recruits:
+			try:
+				recruit_datetime_naive = datetime.strptime(recruit_data['date_s'], "%Y/%m/%d %H:%M")
+				recruit_datetime_jst = jst.localize(recruit_datetime_naive)
+				
+				is_expired_now = recruit_datetime_jst < now_jst - timedelta(hours=1)
+				
+				if is_expired_now:
+					await self._send_or_update_recruit_message(ch, recruit_data)
+
+			except (ValueError, KeyError) as e:
+				print(f"定期チェック中にエラーが発生しました (募集ID: {recruit_data.get('id')}): {e}")
+				continue
 
 	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
 		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
@@ -132,7 +160,6 @@ class GDBotController:
 					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
 				)
 			)
-			# [修正点3] ボタンを再追加
 			view.add_item(
 				discord.ui.Button(
 					label="新たな募集を追加",
@@ -149,7 +176,6 @@ class GDBotController:
 					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
 				)
 			)
-			# [修正点3] ボタンを再追加
 			view.add_item(
 				discord.ui.Button(
 					label="新たな募集を追加",
@@ -207,12 +233,15 @@ class GDBotController:
 			await self._send_or_update_recruit_message(ch, recruit_data)
 
 		await self._ensure_header(ch)
+
+		if not self.check_expired_recruits.is_running():
+			self.check_expired_recruits.start()
+
 		print("✅ ready")
 
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
 		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:", "join_as_mentor", "join_as_member")):
-			# JoinLeaveButtonsとMentorJoinChoiceViewの処理はそちらに任せる
 			return
 
 		if it.type.name != "component":
@@ -291,6 +320,18 @@ class GDBotController:
 		"""
 		募集データが送信された際の処理 (新しいフォームから呼び出される)
 		"""
+		try:
+			jst = pytz.timezone('Asia/Tokyo')
+			now_jst = datetime.now(jst)
+			recruit_datetime_naive = datetime.strptime(data['date_s'], "%Y/%m/%d %H:%M")
+			recruit_datetime_jst = jst.localize(recruit_datetime_naive)
+			if recruit_datetime_jst < now_jst:
+				await interaction.followup.send("エラー: 過去の日時を登録することはできません。", ephemeral=True)
+				return
+		except ValueError:
+			await interaction.followup.send("エラー: 日時の形式が正しくありません。", ephemeral=True)
+			return
+
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
 			if not interaction.response.is_done():
@@ -343,6 +384,18 @@ class GDBotController:
 		"""
 		編集フォームから送信されたデータで既存の募集を更新する
 		"""
+		try:
+			jst = pytz.timezone('Asia/Tokyo')
+			now_jst = datetime.now(jst)
+			recruit_datetime_naive = datetime.strptime(data['date_s'], "%Y/%m/%d %H:%M")
+			recruit_datetime_jst = jst.localize(recruit_datetime_naive)
+			if recruit_datetime_jst < now_jst:
+				await interaction.followup.send("エラー: 過去の日時を登録することはできません。", ephemeral=True)
+				return
+		except ValueError:
+			await interaction.followup.send("エラー: 日時の形式が正しくありません。", ephemeral=True)
+			return
+
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
 			await interaction.followup.send("エラー: チャンネルが見つかりません。", ephemeral=True)
