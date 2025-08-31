@@ -37,17 +37,7 @@ class Auth extends CI_Controller {
 					'is_logged_in' => TRUE
 				);
 				$this->session->set_userdata($userdata);
-
-				// --- ここから確認コード ---
-				$session_id = session_id();
-				$session_path = APPPATH . 'cache/' . 'ci_admin_session' . $session_id;
-
-				echo "認証成功。";
-				echo "次のコマンドで、セッションファイルの中身を確認してください。<br><br>";
-				echo "<pre>cat " . $session_path . "</pre>";
-				exit; // ここで処理を停止して確認
-				// --- ここまで ---
-
+				redirect('dashboard');
 			} else {
 				$data['error'] = 'Invalid username or password';
 				$this->load->view('auth/login', $data);
