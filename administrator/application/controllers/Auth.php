@@ -1,6 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+// 継承元を Public_Controller から CI_Controller に戻す
 class Auth extends CI_Controller {
 
 	public function __construct()
@@ -23,11 +24,11 @@ class Auth extends CI_Controller {
 		$this->form_validation->set_rules('password', 'Password', 'required');
 
 		if ($this->form_validation->run() == FALSE) {
-			$this.load->view('auth/login');
+			$this->load->view('auth/login');
 		} else {
-			$username = $this.input->post('username');
-			$password = $this.input->post('password');
-			$user = $this.auth_model->login($username, $password);
+			$username = $this->input->post('username');
+			$password = $this->input->post('password');
+			$user = $this->auth_model->login($username, $password);
 
 			if ($user) {
 				$userdata = array(
@@ -36,22 +37,18 @@ class Auth extends CI_Controller {
 					'role' => $user['role'],
 					'is_logged_in' => TRUE
 				);
-				$this.session->set_userdata($userdata);
-
-				// [修正点] リダイレクト前にセッションをファイルに書き込む
-				session_write_close();
-
+				$this->session->set_userdata($userdata);
 				redirect('dashboard');
 			} else {
 				$data['error'] = 'Invalid username or password';
-				$this.load->view('auth/login', $data);
+				$this->load->view('auth/login', $data);
 			}
 		}
 	}
 
 	public function logout()
 	{
-		$this.session->sess_destroy();
+		$this->session->sess_destroy();
 		redirect('auth/login');
 	}
 }
