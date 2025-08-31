@@ -148,6 +148,7 @@ class RecruitModel:
 			row['participants'] = json.loads(row['participants']) if row['participants'] else []
 			row['mentors'] = json.loads(row.get('mentors', '[]')) if row.get('mentors') else []
 			row['mentor_needed'] = bool(row.get('mentor_needed'))
+			row['notification_sent'] = bool(row.get('notification_sent', 0)) # [修正点] カラム読み込み
 		return rows
 
 	async def get_recruit_by_id(self, recruit_id: int) -> Union[dict, None]:
@@ -157,6 +158,7 @@ class RecruitModel:
 			row['participants'] = json.loads(row['participants']) if row['participants'] else []
 			row['mentors'] = json.loads(row.get('mentors', '[]')) if row.get('mentors') else []
 			row['mentor_needed'] = bool(row.get('mentor_needed'))
+			row['notification_sent'] = bool(row.get('notification_sent', 0)) # [修正点] カラム読み込み
 		return row
 
 	async def update_recruit_participants(self, recruit_id: int, participants_list: list[int]):
@@ -172,6 +174,11 @@ class RecruitModel:
 	async def update_recruit_message_id(self, recruit_id: int, message_id: int):
 		query = "UPDATE recruits SET msg_id = ? WHERE id = ?"
 		await DatabaseManager.execute_query(query, (message_id, recruit_id))
+		
+	async def mark_notification_as_sent(self, recruit_id: int):
+		"""[修正点] 通知フラグを立てる"""
+		query = "UPDATE recruits SET notification_sent = 1 WHERE id = ?"
+		await DatabaseManager.execute_query(query, (recruit_id,))
 
 	async def delete_recruit(self, recruit_id: int):
 		query = "DELETE FROM recruits WHERE id = ?"
