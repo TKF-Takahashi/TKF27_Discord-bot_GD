@@ -1,7 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-// 継承元を Public_Controller から CI_Controller に戻す
 class Auth extends CI_Controller {
 
 	public function __construct()
@@ -38,7 +37,20 @@ class Auth extends CI_Controller {
 					'is_logged_in' => TRUE
 				);
 				$this->session->set_userdata($userdata);
-				redirect('dashboard');
+
+				// --- ここから確認コード ---
+				echo "<pre>";
+				echo "--- Auth.php ---<br>";
+				echo "セッション設定直後のデータ:<br>";
+				var_dump($this->session->all_userdata());
+				echo "<br>この内容が次の画面で消えています。5秒後にDashboardへ移動します...<br>";
+				echo "</pre>";
+				
+				// 5秒待ってからリダイレクト
+				header("Refresh:5; url=".site_url('dashboard'));
+				exit;
+				// --- ここまで ---
+
 			} else {
 				$data['error'] = 'Invalid username or password';
 				$this->load->view('auth/login', $data);

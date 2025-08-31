@@ -6,23 +6,26 @@ class Auth_hook {
 	public function check_login()
 	{
 		$CI =& get_instance();
-
-		// 現在アクセスされているクラス名とメソッド名を取得
 		$class = $CI->router->fetch_class();
-		$method = $CI->router->fetch_method();
 
-		// ログインコントローラ自体はチェックから除外する
 		if ($class === 'auth') {
 			return;
 		}
-
-		// セッションライブラリがロードされているか確認
+		
 		if ( ! isset($CI->session))
 		{
-			$CI->load->library('session');
+			 $CI->load->library('session');
 		}
 
-		// ログイン状態でない場合、ログインページにリダイレクト
+		// --- ここから確認コード ---
+		echo "<pre>";
+		echo "--- Auth_hook.php (遷移後の画面) ---<br>";
+		echo "現在のセッションデータ:<br>";
+		var_dump($CI->session->all_userdata());
+		echo "</pre>";
+		exit; // 確認のためここで処理を停止
+		// --- ここまで ---
+
 		if ( ! $CI->session->userdata('is_logged_in'))
 		{
 			redirect('auth/login');
