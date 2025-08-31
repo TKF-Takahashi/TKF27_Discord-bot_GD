@@ -37,6 +37,7 @@ class Auth extends CI_Controller {
 					'is_logged_in' => TRUE
 				);
 				$this->session->set_userdata($userdata);
+                session_write_close();
 				redirect('dashboard');
 			} else {
 				$data['error'] = 'Invalid username or password';
