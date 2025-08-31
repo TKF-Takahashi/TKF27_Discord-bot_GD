@@ -65,27 +65,30 @@ class GDBotController:
 
 	@tasks.loop(minutes=5)
 	async def check_upcoming_recruits(self):
-		"""[修正点] 5分ごとに、1時間以内に開始する募集がないかチェックし通知するタスク"""
+		"""5分ごとに、1時間以内に開始する募集がないかチェックし通知するタスク"""
 		all_recruits = await self.recruit_model.get_all_recruits()
 		jst = pytz.timezone('Asia/Tokyo')
 		now_jst = datetime.now(jst)
-		one_hour_later = now_jst + timedelta(hours=1)
+		
+		# [修正点1] 通知が重複しないように時間範囲を厳密に設定 (55分前 < target <= 60分前)
+		in_55_minutes = now_jst + timedelta(minutes=55)
+		in_60_minutes = now_jst + timedelta(minutes=60)
 
 		for r in all_recruits:
-			# 通知がまだ送信されておらず、かつ、開催時刻が1時間以内かチェック
 			if not r.get('notification_sent'):
 				try:
 					recruit_dt_naive = datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")
 					recruit_dt_jst = jst.localize(recruit_dt_naive)
 
-					if now_jst <= recruit_dt_jst < one_hour_later:
+					if in_55_minutes < recruit_dt_jst <= in_60_minutes:
 						all_user_ids = r.get('participants', []) + r.get('mentors', [])
 						
 						ch = self.bot.get_channel(self.channel_id)
 						thread_url = f"https://discord.com/channels/{ch.guild.id}/{r['thread_id']}" if ch else "スレッドが見つかりません"
 
+						# [修正点2] メッセージ内容を変更
 						message = (
-							f"📢 **まもなくGD練習会が始まります**\n"
+							f"📢 **１時間後にGD練習会が始まります**\n"
 							f"-----------------------------\n"
 							f"**日時:** {r['date_s']}\n"
 							f"**場所:** {r['place']}\n"
@@ -103,7 +106,6 @@ class GDBotController:
 							except Exception as e:
 								print(f"DM送信中に予期せぬエラー (ユーザーID: {user_id}): {e}")
 						
-						# 通知フラグをDBに保存
 						await self.recruit_model.mark_notification_as_sent(r['id'])
 
 				except (ValueError, KeyError) as e:
@@ -117,7 +119,6 @@ class GDBotController:
 		jst = pytz.timezone('Asia/Tokyo')
 		now_jst = datetime.now(jst)
 		
-		# 終了した募集をフィルタリング
 		active_recruits = [
 			r for r in current_recruits
 			if jst.localize(datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")) >= now_jst - timedelta(hours=1)
@@ -284,7 +285,6 @@ class GDBotController:
 		if not self.check_expired_recruits.is_running():
 			self.check_expired_recruits.start()
 		
-		# [修正点] 通知タスクを開始
 		if not self.check_upcoming_recruits.is_running():
 			self.check_upcoming_recruits.start()
 
