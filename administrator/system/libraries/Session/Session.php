@@ -68,8 +68,6 @@ class CI_Session {
 	 */
 	public function __construct(array $params = array())
 	{
-		ini_set('session.save_path', rtrim($params['save_path'], '/\\'));
-		
 		// No sessions under CLI
 		if (is_cli())
 		{
