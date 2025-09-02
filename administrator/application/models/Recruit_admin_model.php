@@ -30,29 +30,31 @@ class Recruit_admin_model extends CI_Model {
 		return $this->db->delete('recruits', array('id' => $id));
 	}
 
-	public function get_setting($name)
+	public function get_setting($key)
 	{
-		$query = $this->db->get_where('settings', array('name' => $name));
+		// ▼▼▼【修正】カラム名を 'name' から 'key' に変更 ▼▼▼
+		$query = $this->db->get_where('settings', array('key' => $key));
+		// ▲▲▲【修正】ここまで ▲▲▲
 		$result = $query->row_array();
 		return $result ? $result['value'] : null;
 	}
 
-	public function set_setting($name, $value)
+	public function set_setting($key, $value)
 	{
-		$data = array('name' => $name);
+		// ▼▼▼【修正】カラム名を 'name' から 'key' に変更 ▼▼▼
+		$data = array('key' => $key);
 		$this->db->where($data);
 		$query = $this->db->get('settings');
 
 		if ($query->num_rows() > 0) {
-			$this->db->where('name', $name);
+			$this->db->where('key', $key);
 			$this->db->update('settings', array('value' => $value));
 		} else {
-			$this->db->insert('settings', array('name' => $name, 'value' => $value));
+			$this->db->insert('settings', array('key' => $key, 'value' => $value));
 		}
+		// ▲▲▲【修正】ここまで ▲▲▲
 		
-		// ▼▼▼【追加】設定変更時にキャッシュを削除 ▼▼▼
 		$this->db->cache_delete('gd_admin', 'settings');
-		// ▲▲▲【追加】ここまで ▲▲▲
 	}
 
 	public function get_all_logs()
