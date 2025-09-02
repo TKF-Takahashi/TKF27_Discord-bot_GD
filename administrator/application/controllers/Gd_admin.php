@@ -11,9 +11,11 @@ class Gd_admin extends CI_Controller {
 		$this->load->helper(array('url', 'form', 'download'));
 		$this->load->library(array('form_validation', 'session'));
 
-		// .envファイルからDiscord Botのトークンを読み込む
-		$dotenv = Dotenv\Dotenv::createImmutable(FCPATH . '../../');
-		$dotenv->load();
+		// ↓↓↓【変更点1】 Dotenvライブラリの読み込み処理を削除 ↓↓↓
+		// // .envファイルからDiscord Botのトークンを読み込む
+		// $dotenv = Dotenv\Dotenv::createImmutable(FCPATH . '../../');
+		// $dotenv->load();
+		// ↑↑↑ ここまでを削除 ↑↑↑
 	}
     
     /**
@@ -154,7 +156,11 @@ class Gd_admin extends CI_Controller {
 		}
 
 		$user_ids = array_unique(explode(',', $user_ids_str));
-		$token = $_ENV['DISCORD_BOT_TOKEN'];
+		
+		// ↓↓↓【変更点2】 環境変数の取得方法を変更 ↓↓↓
+		$token = getenv('DISCORD_BOT_TOKEN');
+		// ↑↑↑【変更点2】 ↑↑↑
+		
 		$users_data = [];
 
 		foreach($user_ids as $id) {
