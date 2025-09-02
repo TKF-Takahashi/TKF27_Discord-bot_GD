@@ -11,7 +11,6 @@ class HourSelect(discord.ui.Select):
 	def __init__(self, default_hour: str = None):
 		hours = [f"{h:02}" for h in range(8, 24)] + [f"{h:02}" for h in range(0, 8)]
 		options = [discord.SelectOption(label=f"{h}時", value=h) for h in hours]
-		# 編集モード用にデフォルト値を設定
 		if default_hour and default_hour != "未設定":
 			for option in options:
 				if option.value == default_hour:
@@ -22,14 +21,11 @@ class HourSelect(discord.ui.Select):
 	async def callback(self, interaction: discord.Interaction):
 		selected_hour = self.values[0]
 		self.view.values["time_hour"] = selected_hour
-		for option in self.options:
-			option.default = option.value == selected_hour
 		await self.view.update_message(interaction)
 
 class MinuteSelect(discord.ui.Select):
 	def __init__(self, default_minute: str = None):
 		options = [discord.SelectOption(label=f"{m:02}分", value=f"{m:02}") for m in range(0, 60, 5)]
-		# 編集モード用にデフォルト値を設定
 		if default_minute and default_minute != "未設定":
 			for option in options:
 				if option.value == default_minute:
@@ -40,8 +36,6 @@ class MinuteSelect(discord.ui.Select):
 	async def callback(self, interaction: discord.Interaction):
 		selected_minute = self.values[0]
 		self.view.values["time_minute"] = selected_minute
-		for option in self.options:
-			option.default = option.value == selected_minute
 		await self.view.update_message(interaction)
 
 class IndustrySelect(discord.ui.Select):
@@ -85,15 +79,15 @@ class CapacitySelect(discord.ui.Select):
 	
 	async def callback(self, interaction: discord.Interaction):
 		self.view.values["capacity"] = self.values[0]
-		self.view.add_main_buttons()
-		await self.view.update_message(interaction)
+		await self.view.show_main_screen(interaction)
 
+# ▼▼▼【修正】Viewの構造を全面的に見直し、ボタンごとにコールバックを定義 ▼▼▼
 class RecruitFormView(discord.ui.View):
 	def __init__(self, controller: 'GDBotController', initial_data: dict = None, recruit_id: int = None):
 		super().__init__(timeout=600)
 		self.controller = controller
-		self.current_screen = "main"
 		self.recruit_id = recruit_id
+		self.message_to_delete: discord.Message = None
 		self.values = {
 			"date": "未設定",
 			"time_hour": "未設定",
@@ -106,181 +100,174 @@ class RecruitFormView(discord.ui.View):
 		}
 
 		if initial_data:
-			self.values["place"] = initial_data.get("place", "未設定")
-			self.values["capacity"] = str(initial_data.get("max_people", "未設定"))
-			
-			if initial_data.get("date_s"):
-				try:
-					dt_obj = datetime.strptime(initial_data["date_s"], "%Y/%m/%d %H:%M")
-					self.values["date"] = dt_obj.strftime("%Y/%m/%d")
-					self.values["time_hour"] = dt_obj.strftime("%H")
-					self.values["time_minute"] = dt_obj.strftime("%M")
-				except ValueError:
-					pass # パース失敗時は未設定のまま
-
-			# 修正: 既存のnoteカラムから、新しい個別のカラムにデータをマッピング
-			note = initial_data.get("note", "")
-			if note:
-				note_parts = note.split(' / ')
-				for part in note_parts:
-					if part == "メンター希望":
-						self.values["mentor_needed"] = True
-					elif part.startswith("想定業界: "):
-						self.values["industry"] = part.replace("想定業界: ", "", 1)
-					else:
-						self.values["note_message"] = part
-			
-			self.values["note_message"] = initial_data.get("message", "未設定")
-			self.values["mentor_needed"] = initial_data.get("mentor_needed", 0) == 1
-			self.values["industry"] = initial_data.get("industry", "未設定")
+			self.populate_initial_data(initial_data)
 		
-		self.add_main_buttons()
+		self.show_main_screen()
 
-	def add_main_buttons(self):
+	def populate_initial_data(self, data: dict):
+		self.values["place"] = data.get("place", "未設定")
+		self.values["capacity"] = str(data.get("max_people", "未設定"))
+		if data.get("date_s"):
+			try:
+				dt_obj = datetime.strptime(data["date_s"], "%Y/%m/%d %H:%M")
+				self.values["date"] = dt_obj.strftime("%Y/%m/%d")
+				self.values["time_hour"] = dt_obj.strftime("%H")
+				self.values["time_minute"] = dt_obj.strftime("%M")
+			except ValueError:
+				pass
+		self.values["note_message"] = data.get("message", "未設定")
+		self.values["mentor_needed"] = data.get("mentor_needed", 0) == 1
+		self.values["industry"] = data.get("industry", "未設定")
+	
+	def clear_and_set_screen(self, screen_name: str):
 		self.clear_items()
-		self.current_screen = "main"
-		self.add_item(discord.ui.Button(label="📅 日付設定", style=discord.ButtonStyle.secondary, custom_id="set_date", row=0))
-		self.add_item(discord.ui.Button(label="📍 場所設定", style=discord.ButtonStyle.secondary, custom_id="set_place", row=0))
-		self.add_item(discord.ui.Button(label="👥 定員設定", style=discord.ButtonStyle.secondary, custom_id="set_capacity", row=0))
-		self.add_item(discord.ui.Button(label="📝 備考設定", style=discord.ButtonStyle.secondary, custom_id="set_note", row=0))
-		
-		if self.recruit_id:
-			self.add_item(discord.ui.Button(label="✅ 募集を更新", style=discord.ButtonStyle.success, custom_id="update_recruit", row=1))
+		self.current_screen = screen_name
+
+	async def update_message(self, interaction: discord.Interaction):
+		embed = self.create_embed()
+		kwargs = {'embed': embed, 'view': self}
+		if interaction.response.is_done():
+			await interaction.followup.edit_message(message_id=interaction.message.id, **kwargs)
 		else:
-			self.add_item(discord.ui.Button(label="✅ 募集を作成", style=discord.ButtonStyle.success, custom_id="create_recruit", row=1, disabled=True))
-
-	def add_note_buttons(self):
-		self.clear_items()
-		self.current_screen = "note"
-		self.add_item(discord.ui.Button(label="↩️ フォームに戻る", style=discord.ButtonStyle.grey, custom_id="back_to_main_form"))
-		self.add_item(discord.ui.Button(label="✉️ メッセージ", style=discord.ButtonStyle.secondary, custom_id="set_note_message"))
-		
-		mentor_label = "メンター: OFF" if not self.values["mentor_needed"] else "メンター: ON"
-		mentor_style = discord.ButtonStyle.danger if not self.values["mentor_needed"] else discord.ButtonStyle.success
-		self.add_item(discord.ui.Button(label=mentor_label, style=mentor_style, custom_id="toggle_mentor"))
-		
-		self.add_item(IndustrySelect(default_industry=self.values["industry"]))
+			await interaction.response.edit_message(**kwargs)
 
 	def create_embed(self):
 		embed = discord.Embed(title="募集作成フォーム")
+		embed.description = "下のボタンを押して各項目を入力してください。"
 		
-		if self.current_screen == "note":
-			embed.description = "備考の各項目を設定してください。"
-			embed.add_field(name="✉️ メッセージ", value=self.values['note_message'], inline=False)
-			embed.add_field(name="🤝 メンター有無", value="呼ぶ" if self.values['mentor_needed'] else "呼ばない", inline=False)
-			embed.add_field(name="🏢 想定業界", value=self.values['industry'], inline=False)
-		else:
-			embed.description = "下のボタンを押して各項目を入力してください。"
-			datetime_val = f"{self.values['date']} {self.values['time_hour']}:{self.values['time_minute']}"
-			if "未設定" in datetime_val:
-				datetime_val = "未設定"
-			
-			mentor_status = "呼ぶ" if self.values['mentor_needed'] else "呼ばない"
-
-			place_val = self.values['place'] if self.values['place'] is not None else "未設定"
-			capacity_val = self.values['capacity'] if self.values['capacity'] is not None else "未設定"
-			message_val = self.values['note_message'] if self.values['note_message'] is not None else "未設定"
-			industry_val = self.values['industry'] if self.values['industry'] is not None else "未設定"
-
-			embed.add_field(name="📅 日時", value=datetime_val, inline=False)
-			embed.add_field(name="📍 場所", value=place_val, inline=False)
-			embed.add_field(name="👥 定員", value=capacity_val, inline=False)
-			embed.add_field(name="✉️ メッセージ", value=message_val, inline=False)
-			embed.add_field(name="🤝 メンター有無", value=mentor_status, inline=False)
-			embed.add_field(name="🏢 想定業界", value=industry_val, inline=False)
+		datetime_val = f"{self.values['date']} {self.values['time_hour']}:{self.values['time_minute']}"
+		if "未設定" in datetime_val:
+			datetime_val = "未設定"
+		
+		mentor_status = "呼ぶ" if self.values['mentor_needed'] else "呼ばない"
+		
+		embed.add_field(name="📅 日時", value=datetime_val, inline=False)
+		embed.add_field(name="📍 場所", value=self.values['place'], inline=False)
+		embed.add_field(name="👥 定員", value=self.values['capacity'], inline=False)
+		embed.add_field(name="📝 備考", value=f"メッセージ: {self.values['note_message']}\nメンター: {mentor_status}\n想定業界: {self.values['industry']}", inline=False)
 		return embed
 
-	async def update_message(self, interaction: discord.Interaction):
-		if self.current_screen == "time":
-			time_filled = all(self.values[key] != "未設定" for key in ["time_hour", "time_minute"])
-			for item in self.children:
-				if isinstance(item, discord.ui.Button) and item.custom_id == "confirm_time":
-					item.disabled = not time_filled
-					break
-		elif self.current_screen == "main":
-			required_filled = all(self.values[key] != "未設定" for key in ["date", "time_hour", "time_minute", "place", "capacity"])
-			# 新規作成の場合のみボタンを無効化
-			if not self.recruit_id:
-				for item in self.children:
-					if isinstance(item, discord.ui.Button) and item.custom_id == "create_recruit":
-						item.disabled = not required_filled
-						break
-		
-		embed = self.create_embed()
-		if interaction.response.is_done():
-			await interaction.followup.edit_message(embed=embed, view=self, message_id=interaction.message.id)
-		else:
-			await interaction.response.edit_message(embed=embed, view=self)
+	def add_back_button(self):
+		back_button = discord.ui.Button(label="↩️ フォームに戻る", style=discord.ButtonStyle.grey, custom_id="back_to_main")
+		back_button.callback = self.show_main_screen
+		self.add_item(back_button)
 
-	async def add_time_selectors(self, interaction: discord.Interaction):
-		self.current_screen = "time"
-		self.clear_items()
-		self.add_item(HourSelect(default_hour=self.values["time_hour"]))
-		self.add_item(MinuteSelect(default_minute=self.values["time_minute"]))
-		self.add_item(discord.ui.Button(label="↩️ 日付を再入力", style=discord.ButtonStyle.grey, custom_id="reset_date"))
-		self.add_item(discord.ui.Button(label="✅ 時間を登録", style=discord.ButtonStyle.success, custom_id="confirm_time", disabled=True))
+	def show_main_screen(self, interaction: discord.Interaction = None):
+		self.clear_and_set_screen("main")
+		
+		# ボタンの追加
+		date_button = discord.ui.Button(label="📅 日付設定", style=discord.ButtonStyle.secondary, custom_id="set_date")
+		date_button.callback = self.on_set_date
+		self.add_item(date_button)
+
+		place_button = discord.ui.Button(label="📍 場所設定", style=discord.ButtonStyle.secondary, custom_id="set_place")
+		place_button.callback = self.on_set_place
+		self.add_item(place_button)
+		
+		capacity_button = discord.ui.Button(label="👥 定員設定", style=discord.ButtonStyle.secondary, custom_id="set_capacity")
+		capacity_button.callback = self.on_set_capacity
+		self.add_item(capacity_button)
+
+		note_button = discord.ui.Button(label="📝 備考設定", style=discord.ButtonStyle.secondary, custom_id="set_note")
+		note_button.callback = self.on_set_note
+		self.add_item(note_button)
+
+		required_filled = all(self.values[key] != "未設定" for key in ["date", "time_hour", "time_minute", "place", "capacity"])
+		
+		if self.recruit_id:
+			submit_button = discord.ui.Button(label="✅ 募集を更新", style=discord.ButtonStyle.success, custom_id="update_recruit")
+			submit_button.callback = self.on_submit
+		else:
+			submit_button = discord.ui.Button(label="✅ 募集を作成", style=discord.ButtonStyle.success, custom_id="create_recruit", disabled=not required_filled)
+			submit_button.callback = self.on_submit
+		self.add_item(submit_button)
+		
+		if interaction:
+			return self.update_message(interaction)
+
+	async def on_set_date(self, interaction: discord.Interaction):
+		modal = DateInputModal(parent_view=self)
+		await interaction.response.send_modal(modal)
+
+	async def on_set_place(self, interaction: discord.Interaction):
+		modal = TextInputModal(title="場所の入力", label="開催場所 (Zoomなど)", style=discord.TextStyle.short, parent_view=self, key="place", default=self.values["place"])
+		await interaction.response.send_modal(modal)
+
+	async def on_set_capacity(self, interaction: discord.Interaction):
+		self.clear_and_set_screen("capacity")
+		self.add_item(CapacitySelect(default_capacity=self.values["capacity"]))
+		self.add_back_button()
 		await self.update_message(interaction)
 	
-	async def interaction_check(self, interaction: discord.Interaction):
-		custom_id = interaction.data.get("custom_id")
+	async def on_set_note(self, interaction: discord.Interaction):
+		self.clear_and_set_screen("note")
+		
+		message_button = discord.ui.Button(label="✉️ メッセージ", style=discord.ButtonStyle.secondary, custom_id="set_note_message")
+		message_button.callback = self.on_set_note_message
+		self.add_item(message_button)
+		
+		mentor_label = "メンター: ON" if self.values["mentor_needed"] else "メンター: OFF"
+		mentor_style = discord.ButtonStyle.success if self.values["mentor_needed"] else discord.ButtonStyle.danger
+		mentor_button = discord.ui.Button(label=mentor_label, style=mentor_style, custom_id="toggle_mentor")
+		mentor_button.callback = self.on_toggle_mentor
+		self.add_item(mentor_button)
 
-		if custom_id == "set_date":
-			modal = DateInputModal(parent_view=self)
-			await interaction.response.send_modal(modal)
-		elif custom_id == "set_place":
-			modal = TextInputModal(title="場所の入力", label="開催場所 (Zoomなど)", style=discord.TextStyle.short, parent_view=self, key="place", default=self.values["place"])
-			await interaction.response.send_modal(modal)
-		elif custom_id == "set_capacity":
-			self.current_screen = "capacity"
-			self.clear_items()
-			self.add_item(CapacitySelect(default_capacity=self.values["capacity"]))
-			self.add_item(discord.ui.Button(label="↩️ フォームに戻る", style=discord.ButtonStyle.grey, custom_id="back_to_main_form"))
-			await interaction.response.edit_message(view=self)
-		elif custom_id == "set_note":
-			self.add_note_buttons()
-			await self.update_message(interaction)
-		elif custom_id == "create_recruit" or custom_id == "update_recruit":
-			try:
-				date_s = f"{self.values['date']} {self.values['time_hour']}:{self.values['time_minute']}"
-				datetime.strptime(date_s, "%Y/%m/%d %H:%M")
-				cap_int = int(self.values['capacity'])
-				if cap_int <= 0: raise ValueError
-				
-				# 修正: 新しいカラムに対応したデータペイロードを構築
-				data_payload = {
-					'date_s': date_s,
-					'place': self.values['place'],
-					'max_people': cap_int,
-					'message': self.values['note_message'] if self.values['note_message'] != "未設定" else None,
-					'mentor_needed': self.values['mentor_needed'],
-					'industry': self.values['industry'] if self.values['industry'] != "未設定" else None
-				}
-			except (ValueError, TypeError):
-				await interaction.response.send_message("日時または定員の形式が正しくありません。入力し直してください。", ephemeral=True)
-				return True
+		self.add_item(IndustrySelect(default_industry=self.values["industry"]))
+		self.add_back_button()
+		await self.update_message(interaction)
+	
+	async def on_set_note_message(self, interaction: discord.Interaction):
+		modal = TextInputModal(title="備考メッセージ入力", label="メッセージ", style=discord.TextStyle.paragraph, parent_view=self, key="note_message", default=self.values["note_message"])
+		await interaction.response.send_modal(modal)
 
-			if self.recruit_id:
-				await interaction.response.edit_message(content="募集を更新しています...", embed=None, view=None)
-				message_to_delete = await interaction.original_response()
-				await self.controller.handle_recruit_update(interaction, self.recruit_id, data_payload, message_to_delete)
-			else:
-				await interaction.response.edit_message(content="募集を作成しています...", embed=None, view=None)
-				message_to_delete = await interaction.original_response()
-				await self.controller.handle_recruit_submission(interaction, data_payload, message_to_delete)
+	async def on_toggle_mentor(self, interaction: discord.Interaction):
+		self.values["mentor_needed"] = not self.values["mentor_needed"]
+		await self.on_set_note(interaction)
+
+	async def on_submit(self, interaction: discord.Interaction):
+		try:
+			date_s = f"{self.values['date']} {self.values['time_hour']}:{self.values['time_minute']}"
+			datetime.strptime(date_s, "%Y/%m/%d %H:%M")
+			cap_int = int(self.values['capacity'])
+			if cap_int <= 0: raise ValueError
 			
-			self.stop()
-		elif custom_id == "reset_date":
-			modal = DateInputModal(parent_view=self)
-			await interaction.response.send_modal(modal)
-		elif custom_id == "confirm_time" or custom_id == "back_to_main_form":
-			self.add_main_buttons()
-			await self.update_message(interaction)
-		elif custom_id == "set_note_message":
-			modal = TextInputModal(title="備考メッセージ入力", label="メッセージ", style=discord.TextStyle.paragraph, parent_view=self, key="note_message", default=self.values["note_message"])
-			await interaction.response.send_modal(modal)
-		elif custom_id == "toggle_mentor":
-			self.values["mentor_needed"] = not self.values["mentor_needed"]
-			self.add_note_buttons()
-			await self.update_message(interaction)
+			data_payload = {
+				'date_s': date_s,
+				'place': self.values['place'],
+				'max_people': cap_int,
+				'message': self.values['note_message'] if self.values['note_message'] != "未設定" else None,
+				'mentor_needed': self.values['mentor_needed'],
+				'industry': self.values['industry'] if self.values['industry'] != "未設定" else None
+			}
+		except (ValueError, TypeError):
+			if not interaction.response.is_done():
+				await interaction.response.send_message("日時または定員の形式が正しくありません。入力し直してください。", ephemeral=True)
+			return
 
-		return True
+		await interaction.response.edit_message(content="処理中です...", embed=None, view=None)
+		self.message_to_delete = await interaction.original_response()
+
+		if self.recruit_id:
+			await self.controller.handle_recruit_update(interaction, self.recruit_id, data_payload, self.message_to_delete)
+		else:
+			await self.controller.handle_recruit_submission(interaction, data_payload, self.message_to_delete)
+		
+		self.stop()
+
+	async def show_time_selectors(self, interaction: discord.Interaction):
+		self.clear_and_set_screen("time")
+		self.add_item(HourSelect(default_hour=self.values["time_hour"]))
+		self.add_item(MinuteSelect(default_minute=self.values["time_minute"]))
+		
+		confirm_button = discord.ui.Button(label="✅ 時間を登録", style=discord.ButtonStyle.success, custom_id="confirm_time")
+		confirm_button.callback = self.on_confirm_time
+		self.add_item(confirm_button)
+
+		await self.update_message(interaction)
+
+	async def on_confirm_time(self, interaction: discord.Interaction):
+		if all(self.values[key] != "未設定" for key in ["time_hour", "time_minute"]):
+			await self.show_main_screen(interaction)
+		else:
+			# 本来はここに到達しないはずだが、念のため
+			await interaction.response.send_message("時間と分を選択してください。", ephemeral=True, delete_after=5)
