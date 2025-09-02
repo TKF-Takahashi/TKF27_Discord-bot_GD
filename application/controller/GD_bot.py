@@ -22,9 +22,11 @@ class GDBotController:
 	Discordボットのイベント処理とロジックの制御を行うクラス。
 	ModelとViewを連携させる。
 	"""
-	def __init__(self, bot: commands.Bot, channel_id: int):
+	# ▼▼▼【修正】channel_idの引数を削除し、クラス変数を初期化 ▼▼▼
+	def __init__(self, bot: commands.Bot):
 		self.bot = bot
-		self.channel_id = channel_id
+		self.channel_id: Union[int, None] = None
+		# ▲▲▲【修正】ここまで ▲▲▲
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
 		# ▼▼▼【修正】ハードコードされたIDを削除し、Noneで初期化 ▼▼▼
@@ -259,9 +261,24 @@ class GDBotController:
 	async def on_ready(self):
 		"""ボットが起動した際に実行される処理"""
 		await self.bot.tree.sync()
+
+		# ▼▼▼【追加】データベースからチャンネルIDを読み込む ▼▼▼
+		try:
+			channel_id_str = await self.recruit_model.get_setting('channel_id')
+			if not channel_id_str:
+				print("エラー: チャンネルIDがデータベースに設定されていません。")
+				await self.bot.close() # チャンネルIDがないと動作しないため終了
+				return
+			self.channel_id = int(channel_id_str)
+		except (ValueError, TypeError) as e:
+			print(f"チャンネルIDの読み込み中にエラーが発生しました: {e}")
+			await self.bot.close()
+			return
+		# ▲▲▲【追加】ここまで ▲▲▲
+		
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
-			print(f"エラー: CHANNEL_ID {self.channel_id} はテキストチャンネルまたはスレッドではありません。")
+			print(f"エラー: チャンネルID {self.channel_id} はテキストチャンネルまたはスレッドではありません。")
 			return
 
 		try:
