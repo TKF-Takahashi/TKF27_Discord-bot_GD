@@ -49,7 +49,44 @@ class MentorJoinChoiceView(discord.ui.View):
 	@discord.ui.button(label="GDメンバーとして参加", style=discord.ButtonStyle.secondary, custom_id="join_as_member")
 	async def join_as_member_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
 		await interaction.response.edit_message(content="GDメンバーとして参加処理中です...", view=None)
-		await JoinLeaveButtons(self.controller, self.recruit_id)._perform_join(interaction)
+		# ▼▼▼【修正】ここから ▼▼▼
+		# 不適切な引数でJoinLeaveButtonsをインスタンス化していた問題を解消するため、
+		# _perform_joinのロジックを直接ここに展開します。
+		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
+		if not recruit_data:
+			await interaction.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
+			self.stop()
+			return
+
+		user_id = interaction.user.id
+		participants = recruit_data.get('participants', [])
+		mentors = recruit_data.get('mentors', [])
+
+		if user_id in participants:
+			await interaction.followup.send("あなたは既にGDメンバーとして参加しています。", ephemeral=True)
+			self.stop()
+			return
+		
+		if user_id in mentors:
+			await interaction.followup.send("あなたは既にFB要員として参加しています。一度参加を取り消してから再度お試しください。", ephemeral=True)
+			self.stop()
+			return
+
+		if len(participants) >= recruit_data['max_people']:
+			await interaction.followup.send("この募集は満員です。", ephemeral=True)
+			self.stop()
+			return
+
+		participants.append(user_id)
+		await self.controller.recruit_model.update_recruit_participants(self.recruit_id, participants)
+		
+		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
+		channel = self.controller.bot.get_channel(self.controller.channel_id)
+		if updated_recruit_data and channel:
+			await self.controller._send_or_update_recruit_message(channel, updated_recruit_data)
+		
+		await interaction.followup.send("GDメンバーとして参加しました。", ephemeral=True)
+		# ▲▲▲【修正】ここまで ▲▲▲
 		self.stop()
 	
 	async def on_timeout(self):
