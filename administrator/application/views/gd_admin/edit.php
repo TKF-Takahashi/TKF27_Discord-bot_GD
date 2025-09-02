@@ -1,49 +1,44 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-	<meta charset="UTF-8">
-	<title>募集編集</title>
-	<style>
-		body { font-family: sans-serif; }
-		.form-group { margin-bottom: 15px; }
-		label { display: block; margin-bottom: 5px; }
-		input[type="text"], textarea { width: 500px; padding: 8px; }
-		textarea { height: 100px; }
-	</style>
-</head>
-<body>
-	<h1>募集編集 (ID: <?php echo $recruit['id']; ?>)</h1>
-	<?php echo form_open('gd_admin/edit/'.$recruit['id']); ?>
-		<div class="form-group">
-			<label for="date_s">日時</label>
-			<input type="text" name="date_s" value="<?php echo htmlspecialchars($recruit['date_s'], ENT_QUOTES, 'UTF-8'); ?>">
-		</div>
-		<div class="form-group">
-			<label for="place">場所</label>
-			<input type="text" name="place" value="<?php echo htmlspecialchars($recruit['place'], ENT_QUOTES, 'UTF-8'); ?>">
-		</div>
-		<div class="form-group">
-			<label for="max_people">定員</label>
-			<input type="text" name="max_people" value="<?php echo $recruit['max_people']; ?>">
-		</div>
-		<div class="form-group">
-			<label for="message">メッセージ</label>
-			<textarea name="message"><?php echo htmlspecialchars($recruit['message'], ENT_QUOTES, 'UTF-8'); ?></textarea>
-		</div>
-		<div class="form-group">
-			<label for="mentor_needed">メンター希望有無</label>
-			<input type="checkbox" name="mentor_needed" value="1" <?php echo ($recruit['mentor_needed'] == 1) ? 'checked' : ''; ?>>
-		</div>
-		<div class="form-group">
-			<label for="industry">想定業界</label>
-			<input type="text" name="industry" value="<?php echo htmlspecialchars($recruit['industry'], ENT_QUOTES, 'UTF-8'); ?>">
-		</div>
-		<div class="form-group">
-			<label for="participants">参加者 (JSON形式)</label>
-			<textarea name="participants"><?php echo htmlspecialchars($recruit['participants'], ENT_QUOTES, 'UTF-8'); ?></textarea>
-		</div>
-		<button type="submit">更新</button>
-		<a href="<?php echo site_url('gd_admin'); ?>">キャンセル</a>
-	<?php echo form_close(); ?>
-</body>
-</html>
+<?php echo validation_errors('<div class="alert alert-danger">', '</div>'); ?>
+<?php echo form_open('gd_admin/edit/'.$recruit['id']); ?>
+
+<div class="form-group">
+    <label for="date_s">日時 (YYYY/MM/DD HH:MM)</label>
+    <input type="text" name="date_s" class="form-control" value="<?php echo set_value('date_s', $recruit['date_s']); ?>">
+</div>
+<div class="form-group">
+    <label for="place">場所</label>
+    <input type="text" name="place" class="form-control" value="<?php echo set_value('place', $recruit['place']); ?>">
+</div>
+<div class="form-group">
+    <label for="max_people">最大人数</label>
+    <input type="number" name="max_people" class="form-control" value="<?php echo set_value('max_people', $recruit['max_people']); ?>">
+</div>
+<div class="form-group">
+    <label for="industry">業界</label>
+    <input type="text" name="industry" class="form-control" value="<?php echo set_value('industry', $recruit['industry']); ?>">
+</div>
+<div class="form-group">
+    <label for="message">メッセージ</label>
+    <textarea name="message" class="form-control"><?php echo set_value('message', $recruit['message']); ?></textarea>
+</div>
+<div class="form-group">
+    <label for="participants">参加者ID (カンマ区切り)</label>
+    <textarea name="participants" class="form-control"><?php echo set_value('participants', implode(',', json_decode($recruit['participants'], true) ?: [])); ?></textarea>
+</div>
+<div class="form-group">
+    <label for="mentors">メンターID (カンマ区切り)</label>
+    <textarea name="mentors" class="form-control"><?php echo set_value('mentors', implode(',', json_decode($recruit['mentors'], true) ?: [])); ?></textarea>
+</div>
+<div class="form-group form-check">
+    <input type="checkbox" name="mentor_needed" value="1" <?php echo set_checkbox('mentor_needed', '1', (bool)$recruit['mentor_needed']); ?>>
+    <label>メンター希望</label>
+</div>
+<div class="form-group form-check">
+    <input type="checkbox" name="notification_sent" value="1" <?php echo set_checkbox('notification_sent', '1', (bool)$recruit['notification_sent']); ?>>
+    <label>通知済み</label>
+</div>
+
+<button type="submit" class="btn btn-success">更新</button>
+<a href="<?php echo site_url('gd_admin/list'); ?>" class="btn btn-secondary">キャンセル</a>
+
+<?php echo form_close(); ?>
