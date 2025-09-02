@@ -16,7 +16,8 @@ class Recruit:
 					author: Union[discord.Member, None],
 					msg_id: Union[int, None] = None, 
 					participants: Union[list[discord.Member], None] = None,
-					mentors: Union[list[discord.Member], None] = None):
+					mentors: Union[list[discord.Member], None] = None,
+					is_deleted: bool = False):
 		self.id = rid
 		self.date_str = date_s
 		self.place = place
@@ -29,6 +30,7 @@ class Recruit:
 		self.thread_id = thread_id
 		self.msg_id = msg_id
 		self.author = author
+		self.is_deleted = is_deleted
 
 	def is_full(self) -> bool:
 		return len(self.participants) >= self.max_people
@@ -53,10 +55,16 @@ class Recruit:
 		filled_slots = len(self.participants)
 		empty_slots = self.max_people - filled_slots
 		slot_emojis = '🧑' * filled_slots + '・' * empty_slots
+		
+		state_label = ""
+		if self.is_deleted:
+			state_label = "【削除】"
+		elif self.is_expired():
+			state_label = "【終了】"
 
-		# 終了した募集の表示
-		if self.is_expired():
-			header_line = f"【終了】📅 {self.date_str}"
+		# 終了または削除された募集の表示
+		if state_label:
+			header_line = f"{state_label}📅 {self.date_str}"
 			info_lines = []
 			info_lines.append(f"({filled_slots}/{self.max_people}名)")
 			info_lines.append("-----------------------------")
@@ -148,7 +156,8 @@ class RecruitModel:
 			row['participants'] = json.loads(row['participants']) if row['participants'] else []
 			row['mentors'] = json.loads(row.get('mentors', '[]')) if row.get('mentors') else []
 			row['mentor_needed'] = bool(row.get('mentor_needed'))
-			row['notification_sent'] = bool(row.get('notification_sent', 0)) # [修正点] カラム読み込み
+			row['notification_sent'] = bool(row.get('notification_sent', 0))
+			row['is_deleted'] = bool(row.get('is_deleted', 0))
 		return rows
 
 	async def get_recruit_by_id(self, recruit_id: int) -> Union[dict, None]:
@@ -158,7 +167,8 @@ class RecruitModel:
 			row['participants'] = json.loads(row['participants']) if row['participants'] else []
 			row['mentors'] = json.loads(row.get('mentors', '[]')) if row.get('mentors') else []
 			row['mentor_needed'] = bool(row.get('mentor_needed'))
-			row['notification_sent'] = bool(row.get('notification_sent', 0)) # [修正点] カラム読み込み
+			row['notification_sent'] = bool(row.get('notification_sent', 0))
+			row['is_deleted'] = bool(row.get('is_deleted', 0))
 		return row
 
 	async def update_recruit_participants(self, recruit_id: int, participants_list: list[int]):
@@ -178,6 +188,11 @@ class RecruitModel:
 	async def mark_notification_as_sent(self, recruit_id: int):
 		"""[修正点] 通知フラグを立てる"""
 		query = "UPDATE recruits SET notification_sent = 1 WHERE id = ?"
+		await DatabaseManager.execute_query(query, (recruit_id,))
+
+	async def mark_as_deleted(self, recruit_id: int):
+		"""募集を削除済みにマークする"""
+		query = "UPDATE recruits SET is_deleted = 1 WHERE id = ?"
 		await DatabaseManager.execute_query(query, (recruit_id,))
 
 	async def delete_recruit(self, recruit_id: int):

@@ -122,6 +122,7 @@ class GDBotController:
 		active_recruits = [
 			r for r in current_recruits
 			if jst.localize(datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")) >= now_jst - timedelta(hours=1)
+			and not r.get('is_deleted', False)
 		]
 
 		if active_recruits and self.header_msg_id:
@@ -190,16 +191,17 @@ class GDBotController:
 			participants=participants_members,
 			mentors=mentors_members,
 			author=author_member,
+			is_deleted=recruit_data.get('is_deleted', False)
 		)
 
 		content = rc.block()
 
-		if rc.mentor_needed and self.MENTOR_ROLE_ID:
+		if rc.mentor_needed and self.MENTOR_ROLE_ID and not rc.is_expired() and not rc.is_deleted:
 			mentor_role = ch.guild.get_role(self.MENTOR_ROLE_ID)
 			if mentor_role:
 				content = f"{mentor_role.mention}\n" + content
 		
-		if rc.is_expired():
+		if rc.is_expired() or rc.is_deleted:
 			view = discord.ui.View(timeout=None)
 			view.add_item(
 				discord.ui.Button(
@@ -216,7 +218,7 @@ class GDBotController:
 				)
 			)
 		else:
-			view = JoinLeaveButtons(self, rc.id)
+			view = JoinLeaveButtons(self, rc)
 			view.add_item(
 				discord.ui.Button(
 					label="スレッドへ",
@@ -292,7 +294,7 @@ class GDBotController:
 
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
-		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:", "join_as_mentor", "join_as_member")):
+		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:", "delete:", "join_as_mentor", "join_as_member")):
 			return
 
 		if it.type.name != "component":

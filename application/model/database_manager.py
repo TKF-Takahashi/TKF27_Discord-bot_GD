@@ -37,6 +37,7 @@ class DatabaseManager:
 			cursor = conn.cursor()
 
 			# SQLite 用の CREATE TABLE 文
+			# 既存のテーブルにカラムを追加するためのALTER TABLE文も追加
 			cursor.execute("""
 				CREATE TABLE IF NOT EXISTS recruits (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,9 +47,17 @@ class DatabaseManager:
 					note TEXT,
 					thread_id INTEGER NOT NULL,
 					msg_id INTEGER,
-					participants TEXT DEFAULT '[]'
+					participants TEXT DEFAULT '[]',
+					is_deleted INTEGER DEFAULT 0
 				)
 			""")
+
+			# 既存のテーブル構造を確認し、必要に応じてカラムを追加
+			cursor.execute("PRAGMA table_info(recruits)")
+			columns = [row['name'] for row in cursor.fetchall()]
+			if 'is_deleted' not in columns:
+				cursor.execute("ALTER TABLE recruits ADD COLUMN is_deleted INTEGER DEFAULT 0")
+
 			conn.commit()
 			print(f"SQLiteデータベース '{DB_NAME}' のテーブルが初期化されました。")
 		except sqlite3.Error as e:
