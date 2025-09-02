@@ -6,15 +6,11 @@ class Gd_admin extends CI_Controller {
 	public function __construct()
 	{
 		parent::__construct();
-		// 必要なライブラリやモデルをロード
 		$this->load->model('recruit_admin_model');
 		$this->load->helper(array('url', 'form', 'download'));
 		$this->load->library(array('form_validation', 'session'));
 	}
     
-    /**
-	 * ダッシュボード（TOPページ）
-	 */
 	public function index()
 	{
 		$data['title'] = 'ダッシュボード';
@@ -23,43 +19,27 @@ class Gd_admin extends CI_Controller {
 		$this->load->view('templates/footer');
 	}
 
-	/**
-	 * 募集一覧ページ
-	 */
 	public function list()
 	{
 		$data['title'] = '募集一覧';
 		$recruits = $this->recruit_admin_model->get_all_recruits();
-		
-		// 参加者とメンターのIDを全件収集
 		$user_ids = [];
 		foreach ($recruits as $recruit) {
 			$p_ids = json_decode($recruit['participants'], true);
-			if (is_array($p_ids)) {
-				$user_ids = array_merge($user_ids, $p_ids);
-			}
+			if (is_array($p_ids)) { $user_ids = array_merge($user_ids, $p_ids); }
 			$m_ids = json_decode($recruit['mentors'], true);
-			if (is_array($m_ids)) {
-				$user_ids = array_merge($user_ids, $m_ids);
-			}
+			if (is_array($m_ids)) { $user_ids = array_merge($user_ids, $m_ids); }
 		}
 		$user_ids = array_unique($user_ids);
-
-		// ユーザー名を取得
 		$data['users'] = $this->recruit_admin_model->get_usernames_by_ids($user_ids);
 		$data['recruits'] = $recruits;
-
 		$this->load->view('templates/header', $data);
 		$this->load->view('gd_admin/list', $data);
 		$this->load->view('templates/footer');
 	}
 
-	/**
-	 * 募集編集ページ
-	 */
 	public function edit($id)
 	{
-		// フォームのバリデーションルールを設定
 		$this->form_validation->set_rules('date_s', '日時', 'required');
 		$this->form_validation->set_rules('place', '場所', 'required');
 		$this->form_validation->set_rules('max_people', '最大人数', 'required|integer');
@@ -67,17 +47,13 @@ class Gd_admin extends CI_Controller {
 		if ($this->form_validation->run() === FALSE) {
 			$data['title'] = '募集編集';
 			$data['recruit'] = $this->recruit_admin_model->get_recruit_by_id($id);
-			if (empty($data['recruit'])) {
-				show_404();
-			}
+			if (empty($data['recruit'])) { show_404(); }
 			$this->load->view('templates/header', $data);
 			$this->load->view('gd_admin/edit', $data);
 			$this->load->view('templates/footer');
 		} else {
-			// participants と mentors をカンマ区切りの文字列から配列に変換
 			$participants = empty($this->input->post('participants')) ? [] : explode(',', $this->input->post('participants'));
 			$mentors = empty($this->input->post('mentors')) ? [] : explode(',', $this->input->post('mentors'));
-
 			$update_data = array(
 				'date_s' => $this->input->post('date_s'),
 				'place' => $this->input->post('place'),
@@ -96,18 +72,15 @@ class Gd_admin extends CI_Controller {
 	}
 
 	/**
-	 * 募集削除処理
+	 * 募集を物理削除する
 	 */
 	public function delete($id)
 	{
 		$this->recruit_admin_model->delete_recruit($id);
-		$this->session->set_flashdata('success', '募集が削除されました。');
+		$this->session->set_flashdata('success', '募集が完全に削除されました。');
 		redirect('gd_admin/list');
 	}
 
-	/**
-	 * 設定ページ
-	 */
 	public function settings()
 	{
 		if ($this->input->post()) {
@@ -116,19 +89,14 @@ class Gd_admin extends CI_Controller {
 			$this->session->set_flashdata('success', '設定が保存されました。');
 			redirect('gd_admin/settings');
 		}
-		
 		$setting = $this->recruit_admin_model->get_setting('mentor_role_id');
 		$data['mentor_role_id'] = $setting ? $setting['value'] : '';
 		$data['title'] = '設定';
-
 		$this->load->view('templates/header', $data);
 		$this->load->view('gd_admin/settings', $data);
 		$this->load->view('templates/footer');
 	}
 	
-	/**
-	 * ログ表示ページ
-	 */
 	public function logs()
 	{
 		$data['title'] = '操作ログ';
@@ -138,9 +106,6 @@ class Gd_admin extends CI_Controller {
 		$this->load->view('templates/footer');
 	}
 
-	/**
-	 * Discordユーザー情報を取得・更新する
-	 */
 	public function fetch_discord_users()
 	{
 		$user_ids_str = $this->input->get('ids');
@@ -148,15 +113,11 @@ class Gd_admin extends CI_Controller {
 			$this->output->set_content_type('application/json')->set_output(json_encode(['error' => 'No IDs provided']));
 			return;
 		}
-
 		$user_ids = array_unique(explode(',', $user_ids_str));
 		$token = getenv('DISCORD_BOT_TOKEN');
 		$users_data = [];
-
 		foreach($user_ids as $id) {
 			if (empty(trim($id))) continue;
-			
-			// APIからユーザー情報を取得
 			$url = "https://discord.com/api/v9/users/{$id}";
 			$ch = curl_init();
 			curl_setopt($ch, CURLOPT_URL, $url);
@@ -164,60 +125,51 @@ class Gd_admin extends CI_Controller {
 			curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bot {$token}"]);
 			$response = curl_exec($ch);
 			curl_close($ch);
-			
 			$user = json_decode($response, true);
 			if (isset($user['username'])) {
-				// 取得した情報をDBに保存
 				$this->recruit_admin_model->store_user_info($id, $user['username']);
 				$users_data[$id] = $user['username'];
 			}
 		}
-
 		$this->output->set_content_type('application/json')->set_output(json_encode($users_data));
 	}
     
-    // ▼▼▼ 以下、復元した関数 ▼▼▼
-
-	/**
-	 * アップデート関連ページ (旧機能)
+    /**
+	 * 【修正】バックアップページを表示する
 	 */
-	public function update()
+	public function backup()
 	{
-		$data['title'] = 'アップデート';
+		$data['title'] = 'バックアップ';
 		$this->load->view('templates/header', $data);
-		$this->load->view('gd_admin/update');
+		$this->load->view('gd_admin/backup', $data);
 		$this->load->view('templates/footer');
 	}
 
 	/**
-	 * データベースバックアップのダウンロード
+	 * 【新設】データベースバックアップのダウンロードを実行
 	 */
-	public function backup()
+	public function do_backup()
 	{
-		// データベース設定を読み込む
 		$database = $this->load->database('bot_db', TRUE);
 		$db_path = $database->database;
 		$db_name = basename($db_path);
-
-		// ファイルを読み込んで直接ダウンロード
 		$data = file_get_contents($db_path);
 		$name = 'db-backup-' . date('Y-m-d_H-i-s') . '-' . $db_name;
 		force_download($name, $data);
 	}
 
 	/**
-	 * データベースをCSVでダウンロード
+	 * 【新設】CSVエクスポートを実行
 	 */
-	public function export_csv()
+	public function do_export_csv()
 	{
 		$this->load->helper('file');
 		$csv_file_path = $this->recruit_admin_model->export_csv();
 		if (file_exists($csv_file_path)) {
 			$file_name = 'recruits_export_' . date('Y-m-d_H-i-s') . '.csv';
-			// BOM付きUTF-8に変換
 			$data = "\xEF\xBB\xBF" . file_get_contents($csv_file_path);
 			force_download($file_name, $data);
-			unlink($csv_file_path); // 一時ファイルを削除
+			unlink($csv_file_path);
 		} else {
 			show_error('CSVファイルの作成に失敗しました。');
 		}

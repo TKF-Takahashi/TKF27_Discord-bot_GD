@@ -48,4 +48,4 @@
         </div>
     <?php endif; ?>
 
-    <div class="container"></div>
+    <div class="container">
