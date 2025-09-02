@@ -27,14 +27,16 @@ class GDBotController:
 		self.channel_id = channel_id
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
-		# 編集権限を持つロールのIDをここに設定してください
-		self.EDIT_ROLE_ID = 123456789012345678 # ：実際のロールIDに置き換えてください
-		self.MENTOR_ROLE_ID: Union[int, None] = None # on_readyで読み込む
+		# ▼▼▼【修正】ハードコードされたIDを削除し、Noneで初期化 ▼▼▼
+		self.ADMIN_ROLE_ID: Union[int, None] = None 
+		self.MENTOR_ROLE_ID: Union[int, None] = None
+		# ▲▲▲【修正】ここまで ▲▲▲
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
 
+	# ... (check_expired_recruits, check_upcoming_recruits, _ensure_header, _send_or_update_recruit_message 関数は変更なし) ...
 	@tasks.loop(minutes=5)
 	async def check_expired_recruits(self):
 		"""
@@ -70,7 +72,6 @@ class GDBotController:
 		jst = pytz.timezone('Asia/Tokyo')
 		now_jst = datetime.now(jst)
 		
-		# [修正点1] 通知が重複しないように時間範囲を厳密に設定 (55分前 < target <= 60分前)
 		in_55_minutes = now_jst + timedelta(minutes=55)
 		in_60_minutes = now_jst + timedelta(minutes=60)
 
@@ -86,7 +87,6 @@ class GDBotController:
 						ch = self.bot.get_channel(self.channel_id)
 						thread_url = f"https://discord.com/channels/{ch.guild.id}/{r['thread_id']}" if ch else "スレッドが見つかりません"
 
-						# [修正点2] メッセージ内容を変更
 						message = (
 							f"📢 **１時間後にGD練習会が始まります**\n"
 							f"-----------------------------\n"
@@ -271,12 +271,21 @@ class GDBotController:
 		except Exception as e:
 			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
 
+		# ▼▼▼【修正】データベースからロールIDを読み込む ▼▼▼
 		try:
+			# メンターロールID
 			mentor_role_id_str = await self.recruit_model.get_setting('mentor_role_id')
 			self.MENTOR_ROLE_ID = int(mentor_role_id_str) if mentor_role_id_str else None
+			
+			# 管理者ロールID
+			admin_role_id_str = await self.recruit_model.get_setting('admin_role_id')
+			self.ADMIN_ROLE_ID = int(admin_role_id_str) if admin_role_id_str else None
+
 		except (ValueError, TypeError) as e:
-			print(f"メンターロールIDの読み込み中にエラーが発生しました: {e}")
+			print(f"ロールIDの読み込み中にエラーが発生しました: {e}")
 			self.MENTOR_ROLE_ID = None
+			self.ADMIN_ROLE_ID = None
+		# ▲▲▲【修正】ここまで ▲▲▲
 
 		all_recruits = await self.recruit_model.get_all_recruits()
 		for recruit_data in all_recruits:
@@ -292,6 +301,7 @@ class GDBotController:
 
 		print("✅ ready")
 
+	# ... (on_interaction, handle_recruit_submission, handle_recruit_update 関数は変更なし) ...
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
 		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:", "delete:", "join_as_mentor", "join_as_member")):

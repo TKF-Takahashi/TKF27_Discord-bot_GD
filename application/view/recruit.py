@@ -9,14 +9,13 @@ if TYPE_CHECKING:
 	from application.model.recruit import Recruit
 
 class MentorJoinChoiceView(discord.ui.View):
-	"""メンターが参加方法を選択するためのボタンビュー"""
+    # ... (このクラスは変更なし) ...
 	def __init__(self, controller: 'GDBotController', recruit_id: int):
-		super().__init__(timeout=180) # 3分でタイムアウト
+		super().__init__(timeout=180)
 		self.controller = controller
 		self.recruit_id = recruit_id
 
 	async def update_main_message(self):
-		"""募集メッセージを更新する共通処理"""
 		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		channel = self.controller.bot.get_channel(self.controller.channel_id)
 		if updated_recruit_data and channel:
@@ -44,20 +43,16 @@ class MentorJoinChoiceView(discord.ui.View):
 		await self.controller.recruit_model.update_recruit_mentors(self.recruit_id, mentors)
 		await self.update_main_message()
 		
-		# [修正点2] 元のメッセージを編集して、ボタンを消す
 		await interaction.response.edit_message(content="FB要員として参加しました。", view=None)
 		self.stop()
 
 	@discord.ui.button(label="GDメンバーとして参加", style=discord.ButtonStyle.secondary, custom_id="join_as_member")
 	async def join_as_member_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-		# [修正点2] 元のメッセージを編集して、ボタンを消す
 		await interaction.response.edit_message(content="GDメンバーとして参加処理中です...", view=None)
-		# JoinLeaveButtonsの通常の参加処理を呼び出す
 		await JoinLeaveButtons(self.controller, self.recruit_id)._perform_join(interaction)
 		self.stop()
 	
 	async def on_timeout(self):
-		# on_timeoutではephemeralなメッセージは編集できないため、何もしない
 		self.stop()
 
 class JoinLeaveButtons(discord.ui.View):
@@ -69,7 +64,6 @@ class JoinLeaveButtons(discord.ui.View):
 		self.controller = controller
 		self.recruit_id = recruit.id
 
-		# 満員の場合、参加ボタンを無効化しスタイルを変更
 		join_button = discord.ui.Button(
 			label="参加予定に追加",
 			style=discord.ButtonStyle.secondary if recruit.is_full() else discord.ButtonStyle.success,
@@ -92,7 +86,6 @@ class JoinLeaveButtons(discord.ui.View):
 		self.add_item(delete_button)
 
 	async def _perform_join(self, interaction: discord.Interaction):
-		"""GDメンバーとして参加する共通ロジック"""
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		if not recruit_data:
 			await interaction.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
@@ -127,7 +120,6 @@ class JoinLeaveButtons(discord.ui.View):
 
 	async def join_callback(self, interaction: discord.Interaction):
 		await interaction.response.defer(ephemeral=True)
-
 		mentor_role_id = self.controller.MENTOR_ROLE_ID
 		user_has_mentor_role = False
 		if mentor_role_id and isinstance(interaction.user, discord.Member):
@@ -140,12 +132,10 @@ class JoinLeaveButtons(discord.ui.View):
 			await self._perform_join(interaction)
 
 	async def leave_callback(self, interaction: discord.Interaction):
-		# [修正点1, 4] 不要なログをなくし、処理をシンプルにする
 		await interaction.response.defer(ephemeral=True)
-		
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		if not recruit_data:
-			return # 募集がない場合は何もせず終了
+			return
 
 		user_id = interaction.user.id
 		participants = recruit_data.get('participants', [])
@@ -161,7 +151,6 @@ class JoinLeaveButtons(discord.ui.View):
 			await self.controller.recruit_model.update_recruit_mentors(self.recruit_id, mentors)
 			removed = True
 		
-		# 参加者リストまたはメンターリストから削除された場合のみメッセージを更新
 		if removed:
 			updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 			channel = self.controller.bot.get_channel(self.controller.channel_id)
@@ -170,7 +159,6 @@ class JoinLeaveButtons(discord.ui.View):
 
 	async def edit_callback(self, interaction: discord.Interaction):
 		await interaction.response.defer(ephemeral=True)
-
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		if not recruit_data:
 			await interaction.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
@@ -178,11 +166,15 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user = interaction.user
 		author_id = recruit_data.get('author_id')
-		edit_role_id = self.controller.EDIT_ROLE_ID
+		# ▼▼▼【修正】ハードコードされたIDを、DBから読み込んだ変数に変更 ▼▼▼
+		admin_role_id = self.controller.ADMIN_ROLE_ID
+		# ▲▲▲【修正】ここまで ▲▲▲
 
 		is_authorized = False
 		if isinstance(user, discord.Member):
-			is_authorized = user.id == author_id or any(role.id == edit_role_id for role in user.roles)
+			# ▼▼▼【修正】判定に変数を適用 ▼▼▼
+			is_authorized = user.id == author_id or (admin_role_id and any(role.id == admin_role_id for role in user.roles))
+			# ▲▲▲【修正】ここまで ▲▲▲
 
 		if not is_authorized:
 			await interaction.followup.send("あなたには、この募集を編集する権限がありません。", ephemeral=True)
@@ -194,7 +186,6 @@ class JoinLeaveButtons(discord.ui.View):
 
 	async def delete_callback(self, interaction: discord.Interaction):
 		await interaction.response.defer(ephemeral=True)
-
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		if not recruit_data:
 			await interaction.followup.send("エラー: その募集は存在しないか、削除されました。", ephemeral=True)
@@ -202,25 +193,26 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user = interaction.user
 		author_id = recruit_data.get('author_id')
-		edit_role_id = self.controller.EDIT_ROLE_ID
+		# ▼▼▼【修正】ハードコードされたIDを、DBから読み込んだ変数に変更 ▼▼▼
+		admin_role_id = self.controller.ADMIN_ROLE_ID
+		# ▲▲▲【修正】ここまで ▲▲▲
 
 		is_authorized = False
 		if isinstance(user, discord.Member):
-			is_authorized = user.id == author_id or any(role.id == edit_role_id for role in user.roles)
+			# ▼▼▼【修正】判定に変数を適用 ▼▼▼
+			is_authorized = user.id == author_id or (admin_role_id and any(role.id == admin_role_id for role in user.roles))
+			# ▲▲▲【修正】ここまで ▲▲▲
 
 		if not is_authorized:
 			await interaction.followup.send("あなたには、この募集を削除する権限がありません。", ephemeral=True)
 			return
 
-		# 参加者またはメンターがいる場合は削除不可
 		if recruit_data.get('participants') or recruit_data.get('mentors'):
 			await interaction.followup.send("参加者またはメンターがいるため、この募集を削除できません。", ephemeral=True)
 			return
 		
-		# 募集を削除済みにマーク
 		await self.controller.recruit_model.mark_as_deleted(self.recruit_id)
 		
-		# メッセージを更新
 		updated_recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
 		channel = self.controller.bot.get_channel(self.controller.channel_id)
 		if updated_recruit_data and channel:
@@ -229,9 +221,7 @@ class JoinLeaveButtons(discord.ui.View):
 		await interaction.followup.send("募集を削除しました。", ephemeral=True)
 
 class HeaderView(discord.ui.View):
-	"""
-	チャンネルのヘッダーに表示される「募集を作成」と「最新状況を反映」ボタンのビュー。
-	"""
+	# ... (このクラスは変更なし) ...
 	def __init__(self):
 		super().__init__(timeout=None)
 		self.add_item(discord.ui.Button(label="募集を作成", style=discord.ButtonStyle.primary, custom_id="test"))
