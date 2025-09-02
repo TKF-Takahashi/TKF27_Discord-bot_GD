@@ -15,9 +15,15 @@
         <?php foreach ($recruits as $recruit): ?>
         <tr>
             <td><?php echo $recruit['id']; ?></td>
-            <td><?php echo html_escape($recruit['date_s']); ?></td>
-            <td><?php echo html_escape($recruit['message']); ?></td>
+            <td>
+                <?php
+                // 【修正】日時を日付と時間に分割して改行表示
+                $datetime = explode(' ', html_escape($recruit['date_s']));
+                echo $datetime[0] . '<br>' . (isset($datetime[1]) ? $datetime[1] : '');
+                ?>
+            </td>
             <td><?php echo html_escape($recruit['place']); ?></td>
+            <td><?php echo html_escape($recruit['message']); ?></td>
             <td><?php echo html_escape($recruit['industry']); ?></td>
             <td>
                 <?php
@@ -53,7 +59,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const userIdsToFetch = new Set();
     userTags.forEach(tag => {
         const userId = tag.dataset.userid;
-        // テキストが数字のみ（IDのまま）の場合にリストに追加
         if (/^\d+$/.test(tag.textContent)) {
             userIdsToFetch.add(userId);
         }
