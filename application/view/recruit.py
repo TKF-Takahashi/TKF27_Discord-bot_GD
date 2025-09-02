@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 import pytz
 
 from typing import TYPE_CHECKING
+from application.model.recruit import Recruit
+
 if TYPE_CHECKING:
 	from application.controller.GD_bot import GDBotController
-	from application.model.recruit import Recruit
 
 class MentorJoinChoiceView(discord.ui.View):
-    # ... (このクラスは変更なし) ...
 	def __init__(self, controller: 'GDBotController', recruit_id: int):
 		super().__init__(timeout=180)
 		self.controller = controller
@@ -49,6 +49,7 @@ class MentorJoinChoiceView(discord.ui.View):
 	@discord.ui.button(label="GDメンバーとして参加", style=discord.ButtonStyle.secondary, custom_id="join_as_member")
 	async def join_as_member_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
 		await interaction.response.edit_message(content="GDメンバーとして参加処理中です...", view=None)
+		# JoinLeaveButtons には recruit_id (int) を渡す
 		await JoinLeaveButtons(self.controller, self.recruit_id)._perform_join(interaction)
 		self.stop()
 	
@@ -59,31 +60,39 @@ class JoinLeaveButtons(discord.ui.View):
 	"""
 	各募集メッセージに付与される「参加予定に追加」「参加予定を削除」「編集」ボタンのビュー。
 	"""
-	def __init__(self, controller: 'GDBotController', recruit: 'Recruit'):
+	def __init__(self, controller: 'GDBotController', recruit_or_id: 'Recruit' or int):
 		super().__init__(timeout=None)
 		self.controller = controller
-		self.recruit_id = recruit.id
 
-		join_button = discord.ui.Button(
-			label="参加予定に追加",
-			style=discord.ButtonStyle.secondary if recruit.is_full() else discord.ButtonStyle.success,
-			custom_id=f"join:{self.recruit_id}",
-			disabled=recruit.is_full()
-		)
-		join_button.callback = self.join_callback
-		self.add_item(join_button)
+		# recruit_or_id が Recruit オブジェクトか ID (int) かを判定
+		if isinstance(recruit_or_id, Recruit):
+			recruit = recruit_or_id
+			self.recruit_id = recruit.id
 
-		leave_button = discord.ui.Button(label="参加予定を削除", style=discord.ButtonStyle.secondary, custom_id=f"leave:{self.recruit_id}")
-		leave_button.callback = self.leave_callback
-		self.add_item(leave_button)
+			# Recruit オブジェクトが渡された場合のみ、ボタンをすべて生成する
+			join_button = discord.ui.Button(
+				label="参加予定に追加",
+				style=discord.ButtonStyle.secondary if recruit.is_full() else discord.ButtonStyle.success,
+				custom_id=f"join:{self.recruit_id}",
+				disabled=recruit.is_full()
+			)
+			join_button.callback = self.join_callback
+			self.add_item(join_button)
 
-		edit_button = discord.ui.Button(label="編集", style=discord.ButtonStyle.primary, custom_id=f"edit:{self.recruit_id}")
-		edit_button.callback = self.edit_callback
-		self.add_item(edit_button)
+			leave_button = discord.ui.Button(label="参加予定を削除", style=discord.ButtonStyle.secondary, custom_id=f"leave:{self.recruit_id}")
+			leave_button.callback = self.leave_callback
+			self.add_item(leave_button)
 
-		delete_button = discord.ui.Button(label="募集を削除", style=discord.ButtonStyle.danger, custom_id=f"delete:{self.recruit_id}")
-		delete_button.callback = self.delete_callback
-		self.add_item(delete_button)
+			edit_button = discord.ui.Button(label="編集", style=discord.ButtonStyle.primary, custom_id=f"edit:{self.recruit_id}")
+			edit_button.callback = self.edit_callback
+			self.add_item(edit_button)
+
+			delete_button = discord.ui.Button(label="募集を削除", style=discord.ButtonStyle.danger, custom_id=f"delete:{self.recruit_id}")
+			delete_button.callback = self.delete_callback
+			self.add_item(delete_button)
+		else:
+			# ID (int) が渡された場合は、IDをセットするだけ
+			self.recruit_id = recruit_or_id
 
 	async def _perform_join(self, interaction: discord.Interaction):
 		recruit_data = await self.controller.recruit_model.get_recruit_by_id(self.recruit_id)
@@ -166,15 +175,11 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user = interaction.user
 		author_id = recruit_data.get('author_id')
-		# ▼▼▼【修正】ハードコードされたIDを、DBから読み込んだ変数に変更 ▼▼▼
 		admin_role_id = self.controller.ADMIN_ROLE_ID
-		# ▲▲▲【修正】ここまで ▲▲▲
 
 		is_authorized = False
 		if isinstance(user, discord.Member):
-			# ▼▼▼【修正】判定に変数を適用 ▼▼▼
 			is_authorized = user.id == author_id or (admin_role_id and any(role.id == admin_role_id for role in user.roles))
-			# ▲▲▲【修正】ここまで ▲▲▲
 
 		if not is_authorized:
 			await interaction.followup.send("あなたには、この募集を編集する権限がありません。", ephemeral=True)
@@ -193,15 +198,11 @@ class JoinLeaveButtons(discord.ui.View):
 
 		user = interaction.user
 		author_id = recruit_data.get('author_id')
-		# ▼▼▼【修正】ハードコードされたIDを、DBから読み込んだ変数に変更 ▼▼▼
 		admin_role_id = self.controller.ADMIN_ROLE_ID
-		# ▲▲▲【修正】ここまで ▲▲▲
 
 		is_authorized = False
 		if isinstance(user, discord.Member):
-			# ▼▼▼【修正】判定に変数を適用 ▼▼▼
 			is_authorized = user.id == author_id or (admin_role_id and any(role.id == admin_role_id for role in user.roles))
-			# ▲▲▲【修正】ここまで ▲▲▲
 
 		if not is_authorized:
 			await interaction.followup.send("あなたには、この募集を削除する権限がありません。", ephemeral=True)
@@ -221,7 +222,6 @@ class JoinLeaveButtons(discord.ui.View):
 		await interaction.followup.send("募集を削除しました。", ephemeral=True)
 
 class HeaderView(discord.ui.View):
-	# ... (このクラスは変更なし) ...
 	def __init__(self):
 		super().__init__(timeout=None)
 		self.add_item(discord.ui.Button(label="募集を作成", style=discord.ButtonStyle.primary, custom_id="test"))
