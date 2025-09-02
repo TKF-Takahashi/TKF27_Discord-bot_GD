@@ -10,12 +10,6 @@ class Gd_admin extends CI_Controller {
 		$this->load->model('recruit_admin_model');
 		$this->load->helper(array('url', 'form', 'download'));
 		$this->load->library(array('form_validation', 'session'));
-
-		// ↓↓↓【変更点1】 Dotenvライブラリの読み込み処理を削除 ↓↓↓
-		// // .envファイルからDiscord Botのトークンを読み込む
-		// $dotenv = Dotenv\Dotenv::createImmutable(FCPATH . '../../');
-		// $dotenv->load();
-		// ↑↑↑ ここまでを削除 ↑↑↑
 	}
     
     /**
@@ -156,15 +150,11 @@ class Gd_admin extends CI_Controller {
 		}
 
 		$user_ids = array_unique(explode(',', $user_ids_str));
-		
-		// ↓↓↓【変更点2】 環境変数の取得方法を変更 ↓↓↓
 		$token = getenv('DISCORD_BOT_TOKEN');
-		// ↑↑↑【変更点2】 ↑↑↑
-		
 		$users_data = [];
 
 		foreach($user_ids as $id) {
-			if (empty($id)) continue;
+			if (empty(trim($id))) continue;
 			
 			// APIからユーザー情報を取得
 			$url = "https://discord.com/api/v9/users/{$id}";
@@ -184,5 +174,52 @@ class Gd_admin extends CI_Controller {
 		}
 
 		$this->output->set_content_type('application/json')->set_output(json_encode($users_data));
+	}
+    
+    // ▼▼▼ 以下、復元した関数 ▼▼▼
+
+	/**
+	 * アップデート関連ページ (旧機能)
+	 */
+	public function update()
+	{
+		$data['title'] = 'アップデート';
+		$this->load->view('templates/header', $data);
+		$this->load->view('gd_admin/update');
+		$this->load->view('templates/footer');
+	}
+
+	/**
+	 * データベースバックアップのダウンロード
+	 */
+	public function backup()
+	{
+		// データベース設定を読み込む
+		$database = $this->load->database('bot_db', TRUE);
+		$db_path = $database->database;
+		$db_name = basename($db_path);
+
+		// ファイルを読み込んで直接ダウンロード
+		$data = file_get_contents($db_path);
+		$name = 'db-backup-' . date('Y-m-d_H-i-s') . '-' . $db_name;
+		force_download($name, $data);
+	}
+
+	/**
+	 * データベースをCSVでダウンロード
+	 */
+	public function export_csv()
+	{
+		$this->load->helper('file');
+		$csv_file_path = $this->recruit_admin_model->export_csv();
+		if (file_exists($csv_file_path)) {
+			$file_name = 'recruits_export_' . date('Y-m-d_H-i-s') . '.csv';
+			// BOM付きUTF-8に変換
+			$data = "\xEF\xBB\xBF" . file_get_contents($csv_file_path);
+			force_download($file_name, $data);
+			unlink($csv_file_path); // 一時ファイルを削除
+		} else {
+			show_error('CSVファイルの作成に失敗しました。');
+		}
 	}
 }
