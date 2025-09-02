@@ -6,13 +6,12 @@ from typing import Union, Set
 from datetime import datetime, timedelta
 import pytz
 
-# 実際のプロジェクト構造に合わせてインポートパスを修正してください
+# ... (import文は変更なし) ...
 from application.model.recruit import RecruitModel, Recruit
 from application.view.recruit import HeaderView, JoinLeaveButtons
 from application.view.form_view import RecruitFormView
 from application.library.helper import remove_thread_system_msg
 
-# GD 練習チャンネルのトピックテキスト
 TOPIC_TEXT = ("📌 **GD 練習チャンネル案内**\n"
 			"・新規募集はボタンから作成してください。\n"
 			"・各募集のボタンで参加/取り消しができます。")
@@ -22,81 +21,59 @@ class GDBotController:
 	Discordボットのイベント処理とロジックの制御を行うクラス。
 	ModelとViewを連携させる。
 	"""
-	def __init__(self, bot: commands.Bot, channel_id: int):
+	# ▼▼▼【修正】__init__の引数からchannel_idを削除 ▼▼▼
+	def __init__(self, bot: commands.Bot):
 		self.bot = bot
-		self.channel_id = channel_id
+		self.channel_id: Union[int, None] = None # DBから読み込むためNoneで初期化
+		# ▲▲▲【修正】ここまで ▲▲▲
 		self.recruit_model = RecruitModel()
 		self.header_msg_id: Union[int, None] = None
-		# ▼▼▼【修正】ハードコードされたIDを削除し、Noneで初期化 ▼▼▼
 		self.ADMIN_ROLE_ID: Union[int, None] = None 
 		self.MENTOR_ROLE_ID: Union[int, None] = None
-		# ▲▲▲【修正】ここまで ▲▲▲
 
 		# Botイベントのリスナーを登録
 		self.bot.event(self.on_ready)
 		self.bot.event(self.on_interaction)
 
-	# ... (check_expired_recruits, check_upcoming_recruits, _ensure_header, _send_or_update_recruit_message 関数は変更なし) ...
+	# ... (check_expired_recruitsなどのタスク関数は変更なし) ...
 	@tasks.loop(minutes=5)
 	async def check_expired_recruits(self):
-		"""
-		5分ごとに募集の期限切れをチェックし、更新するタスク
-		"""
+		if not self.channel_id: return
 		ch = self.bot.get_channel(self.channel_id)
 		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
 			print("定期チェックエラー: チャンネルが見つかりません。")
 			return
-		
 		all_recruits = await self.recruit_model.get_all_recruits()
 		jst = pytz.timezone('Asia/Tokyo')
 		now_jst = datetime.now(jst)
-
 		for recruit_data in all_recruits:
 			try:
 				recruit_datetime_naive = datetime.strptime(recruit_data['date_s'], "%Y/%m/%d %H:%M")
 				recruit_datetime_jst = jst.localize(recruit_datetime_naive)
-				
-				is_expired_now = recruit_datetime_jst < now_jst - timedelta(hours=1)
-				
-				if is_expired_now:
+				if recruit_datetime_jst < now_jst - timedelta(hours=1):
 					await self._send_or_update_recruit_message(ch, recruit_data)
-
 			except (ValueError, KeyError) as e:
 				print(f"定期チェック中にエラーが発生しました (募集ID: {recruit_data.get('id')}): {e}")
 				continue
 
 	@tasks.loop(minutes=5)
 	async def check_upcoming_recruits(self):
-		"""5分ごとに、1時間以内に開始する募集がないかチェックし通知するタスク"""
+		if not self.channel_id: return
 		all_recruits = await self.recruit_model.get_all_recruits()
 		jst = pytz.timezone('Asia/Tokyo')
 		now_jst = datetime.now(jst)
-		
 		in_55_minutes = now_jst + timedelta(minutes=55)
 		in_60_minutes = now_jst + timedelta(minutes=60)
-
 		for r in all_recruits:
 			if not r.get('notification_sent'):
 				try:
 					recruit_dt_naive = datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")
 					recruit_dt_jst = jst.localize(recruit_dt_naive)
-
 					if in_55_minutes < recruit_dt_jst <= in_60_minutes:
 						all_user_ids = r.get('participants', []) + r.get('mentors', [])
-						
 						ch = self.bot.get_channel(self.channel_id)
 						thread_url = f"https://discord.com/channels/{ch.guild.id}/{r['thread_id']}" if ch else "スレッドが見つかりません"
-
-						message = (
-							f"📢 **１時間後にGD練習会が始まります**\n"
-							f"-----------------------------\n"
-							f"**日時:** {r['date_s']}\n"
-							f"**場所:** {r['place']}\n"
-							f"**スレッド:** {thread_url}\n"
-							f"-----------------------------\n"
-							f"準備をお願いします！"
-						)
-
+						message = (f"📢 **１時間後にGD練習会が始まります**\n" f"-----------------------------\n" f"**日時:** {r['date_s']}\n" f"**場所:** {r['place']}\n" f"**スレッド:** {thread_url}\n" f"-----------------------------\n" f"準備をお願いします！")
 						for user_id in all_user_ids:
 							try:
 								user = await self.bot.fetch_user(user_id)
@@ -105,26 +82,16 @@ class GDBotController:
 								print(f"警告: ユーザーID {user_id} にDMを送信できませんでした（ブロックされている可能性があります）。")
 							except Exception as e:
 								print(f"DM送信中に予期せぬエラー (ユーザーID: {user_id}): {e}")
-						
 						await self.recruit_model.mark_notification_as_sent(r['id'])
-
 				except (ValueError, KeyError) as e:
 					print(f"通知チェック中にエラー (募集ID: {r.get('id')}): {e}")
 					continue
 
 	async def _ensure_header(self, ch: Union[discord.TextChannel, discord.Thread]):
-		"""ヘッダーメッセージの有無を確認し、必要に応じて更新/削除する"""
 		current_recruits = await self.recruit_model.get_all_recruits()
-		
 		jst = pytz.timezone('Asia/Tokyo')
 		now_jst = datetime.now(jst)
-		
-		active_recruits = [
-			r for r in current_recruits
-			if jst.localize(datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")) >= now_jst - timedelta(hours=1)
-			and not r.get('is_deleted', False)
-		]
-
+		active_recruits = [r for r in current_recruits if jst.localize(datetime.strptime(r['date_s'], "%Y/%m/%d %H:%M")) >= now_jst - timedelta(hours=1) and not r.get('is_deleted', False)]
 		if active_recruits and self.header_msg_id:
 			try:
 				header_msg = await ch.fetch_message(self.header_msg_id)
@@ -132,7 +99,6 @@ class GDBotController:
 				self.header_msg_id = None
 			except discord.NotFound:
 				self.header_msg_id = None
-				print("⚠ ヘッダーメッセージが見つかりませんでしたが、IDをリセットしました。")
 			except discord.Forbidden:
 				print("⚠ ヘッダーメッセージ削除権限がありません。")
 			except Exception as e:
@@ -147,93 +113,26 @@ class GDBotController:
 				print(f"ヘッダーメッセージ送信中に予期せぬエラー: {e}")
 
 	async def _send_or_update_recruit_message(self, ch: Union[discord.TextChannel, discord.Thread], recruit_data: dict):
-		"""
-		募集メッセージを送信または更新する。
-		"""
 		guild = ch.guild
-		participants_members: list[discord.Member] = []
-		for user_id in recruit_data.get('participants', []):
-			try:
-				member = await guild.fetch_member(user_id)
-				participants_members.append(member)
-			except discord.NotFound:
-				print(f"警告: 参加者ID {user_id} のメンバーが見つかりません。")
-			except Exception as e:
-				print(f"メンバー取得中に予期せぬエラー ({user_id}): {e}")
-
-		mentors_members: list[discord.Member] = []
-		for user_id in recruit_data.get('mentors', []):
-			try:
-				member = await guild.fetch_member(user_id)
-				mentors_members.append(member)
-			except discord.NotFound:
-				print(f"警告: メンターID {user_id} のメンバーが見つかりません。")
-			except Exception as e:
-				print(f"メンター取得中に予期せぬエラー ({user_id}): {e}")
-
-		author_member = None
-		if recruit_data.get('author_id'):
-			try:
-				author_member = await guild.fetch_member(recruit_data['author_id'])
-			except discord.NotFound:
-				print(f"警告: 募集者ID {recruit_data['author_id']} のメンバーが見つかりません。")
-
+		participants_members: list[discord.Member] = [await self._safe_fetch_member(guild, user_id) for user_id in recruit_data.get('participants', [])]
+		mentors_members: list[discord.Member] = [await self._safe_fetch_member(guild, user_id) for user_id in recruit_data.get('mentors', [])]
+		author_member = await self._safe_fetch_member(guild, recruit_data.get('author_id'))
+		
 		rc = Recruit(
-			rid=recruit_data['id'],
-			date_s=recruit_data['date_s'],
-			place=recruit_data['place'],
-			cap=recruit_data['max_people'],
-			message=recruit_data['message'],
-			mentor_needed=bool(recruit_data['mentor_needed']),
-			industry=recruit_data['industry'],
-			thread_id=recruit_data['thread_id'],
-			msg_id=recruit_data['msg_id'],
-			participants=participants_members,
-			mentors=mentors_members,
-			author=author_member,
-			is_deleted=recruit_data.get('is_deleted', False)
+			rid=recruit_data['id'], date_s=recruit_data['date_s'], place=recruit_data['place'], cap=recruit_data['max_people'], message=recruit_data['message'], mentor_needed=bool(recruit_data['mentor_needed']), industry=recruit_data['industry'], thread_id=recruit_data['thread_id'], msg_id=recruit_data['msg_id'], participants=[m for m in participants_members if m], mentors=[m for m in mentors_members if m], author=author_member, is_deleted=recruit_data.get('is_deleted', False)
 		)
 
 		content = rc.block()
-
 		if rc.mentor_needed and self.MENTOR_ROLE_ID and not rc.is_expired() and not rc.is_deleted:
 			mentor_role = ch.guild.get_role(self.MENTOR_ROLE_ID)
-			if mentor_role:
-				content = f"{mentor_role.mention}\n" + content
+			if mentor_role: content = f"{mentor_role.mention}\n" + content
 		
-		if rc.is_expired() or rc.is_deleted:
-			view = discord.ui.View(timeout=None)
-			view.add_item(
-				discord.ui.Button(
-					label="スレッドへ",
-					style=discord.ButtonStyle.link,
-					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
-				)
-			)
-			view.add_item(
-				discord.ui.Button(
-					label="新たな募集を追加",
-					style=discord.ButtonStyle.primary,
-					custom_id="test"
-				)
-			)
-		else:
+		view = discord.ui.View(timeout=None)
+		view.add_item(discord.ui.Button(label="スレッドへ", style=discord.ButtonStyle.link, url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"))
+		view.add_item(discord.ui.Button(label="新たな募集を追加", style=discord.ButtonStyle.primary, custom_id="test"))
+		if not rc.is_expired() and not rc.is_deleted:
 			view = JoinLeaveButtons(self, rc)
-			view.add_item(
-				discord.ui.Button(
-					label="スレッドへ",
-					style=discord.ButtonStyle.link,
-					url=f"https://discord.com/channels/{ch.guild.id}/{rc.thread_id}"
-				)
-			)
-			view.add_item(
-				discord.ui.Button(
-					label="新たな募集を追加",
-					style=discord.ButtonStyle.primary,
-					custom_id="test"
-				)
-			)
-
+		
 		if rc.msg_id:
 			try:
 				message = await ch.fetch_message(rc.msg_id)
@@ -250,29 +149,35 @@ class GDBotController:
 			msg = await ch.send(content, view=view)
 			await self.recruit_model.update_recruit_message_id(rc.id, msg.id)
 			rc.msg_id = msg.id
-			await asyncio.sleep(0.5)
 		except discord.Forbidden:
 			print("⚠ メッセージ送信権限がありません。")
 		except Exception as e:
 			print(f"メッセージ送信中に予期せぬエラー: {e}")
 
+	async def _safe_fetch_member(self, guild, user_id):
+		if not user_id: return None
+		try:
+			return await guild.fetch_member(user_id)
+		except discord.NotFound:
+			print(f"警告: メンバーID {user_id} が見つかりません。")
+			return None
+		except Exception as e:
+			print(f"メンバー取得中に予期せぬエラー ({user_id}): {e}")
+			return None
+
 	async def on_ready(self):
 		"""ボットが起動した際に実行される処理"""
 		await self.bot.tree.sync()
-		ch = self.bot.get_channel(self.channel_id)
-		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
-			print(f"エラー: CHANNEL_ID {self.channel_id} はテキストチャンネルまたはスレッドではありません。")
-			return
 
+		# ▼▼▼【修正】データベースから各種IDを読み込む ▼▼▼
 		try:
-			await ch.edit(topic=TOPIC_TEXT)
-		except discord.Forbidden:
-			print("⚠ チャンネルトピック設定権限がありません。")
-		except Exception as e:
-			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
+			# チャンネルID
+			channel_id_str = await self.recruit_model.get_setting('channel_id')
+			if not channel_id_str:
+				print("エラー: チャンネルIDがデータベースに設定されていません。管理者画面から設定してください。")
+				return
+			self.channel_id = int(channel_id_str)
 
-		# ▼▼▼【修正】データベースからロールIDを読み込む ▼▼▼
-		try:
 			# メンターロールID
 			mentor_role_id_str = await self.recruit_model.get_setting('mentor_role_id')
 			self.MENTOR_ROLE_ID = int(mentor_role_id_str) if mentor_role_id_str else None
@@ -282,10 +187,21 @@ class GDBotController:
 			self.ADMIN_ROLE_ID = int(admin_role_id_str) if admin_role_id_str else None
 
 		except (ValueError, TypeError) as e:
-			print(f"ロールIDの読み込み中にエラーが発生しました: {e}")
-			self.MENTOR_ROLE_ID = None
-			self.ADMIN_ROLE_ID = None
+			print(f"IDの読み込み中にエラーが発生しました: {e}")
+			return
 		# ▲▲▲【修正】ここまで ▲▲▲
+
+		ch = self.bot.get_channel(self.channel_id)
+		if not isinstance(ch, (discord.TextChannel, discord.Thread)):
+			print(f"エラー: チャンネルID {self.channel_id} は不正です。")
+			return
+
+		try:
+			await ch.edit(topic=TOPIC_TEXT)
+		except discord.Forbidden:
+			print("⚠ チャンネルトピック設定権限がありません。")
+		except Exception as e:
+			print(f"チャンネルトピック設定中に予期せぬエラー: {e}")
 
 		all_recruits = await self.recruit_model.get_all_recruits()
 		for recruit_data in all_recruits:
@@ -313,6 +229,9 @@ class GDBotController:
 		custom_id = it.data.get("custom_id")
 		
 		if custom_id == "test":
+			if not self.channel_id:
+				await it.response.send_message("エラー: Botのチャンネルが設定されていません。", ephemeral=True)
+				return
 			form_view = RecruitFormView(self)
 			embed = form_view.create_embed()
 			try:

@@ -3,6 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Gd_admin extends CI_Controller {
 
+	// ... __construct, index, list, edit, delete などの関数は変更なし ...
 	public function __construct()
 	{
 		parent::__construct();
@@ -10,6 +11,7 @@ class Gd_admin extends CI_Controller {
 		$this->load->helper(array('url', 'form', 'download'));
 		$this->load->library(array('form_validation', 'session'));
 	}
+
 	public function index()
 	{
 		$data['title'] = 'ダッシュボード';
@@ -83,11 +85,15 @@ class Gd_admin extends CI_Controller {
 	public function settings()
 	{
 		if ($this->input->post()) {
+			// 【追加】チャンネルIDを保存
+			$channel_id = $this->input->post('channel_id');
+			$this->recruit_admin_model->set_setting('channel_id', $channel_id);
+
 			// メンターロールIDを保存
 			$mentor_role_id = $this->input->post('mentor_role_id');
 			$this->recruit_admin_model->set_setting('mentor_role_id', $mentor_role_id);
 			
-			// 【追加】管理者ロールIDを保存
+			// 管理者ロールIDを保存
 			$admin_role_id = $this->input->post('admin_role_id');
 			$this->recruit_admin_model->set_setting('admin_role_id', $admin_role_id);
 
@@ -95,11 +101,15 @@ class Gd_admin extends CI_Controller {
 			redirect('gd_admin/settings');
 		}
 		
+		// 【追加】チャンネルIDを取得
+		$channel_setting = $this->recruit_admin_model->get_setting('channel_id');
+		$data['channel_id'] = $channel_setting ? $channel_setting['value'] : '';
+		
 		// メンターロールIDを取得
 		$mentor_setting = $this->recruit_admin_model->get_setting('mentor_role_id');
 		$data['mentor_role_id'] = $mentor_setting ? $mentor_setting['value'] : '';
 
-		// 【追加】管理者ロールIDを取得
+		// 管理者ロールIDを取得
 		$admin_setting = $this->recruit_admin_model->get_setting('admin_role_id');
 		$data['admin_role_id'] = $admin_setting ? $admin_setting['value'] : '';
 

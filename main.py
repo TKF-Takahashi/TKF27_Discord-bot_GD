@@ -17,12 +17,13 @@ if TOKEN is None:
     print("エラー: DISCORD_BOT_TOKEN 環境変数が設定されていません。")
     exit(1)
 
-# 環境変数からCHANNEL_IDを取得し、int型に変換
-try:
-    CHANNEL_ID = int(os.getenv('CHANNEL_ID'))
-except (TypeError, ValueError):
-    print("エラー: CHANNEL_ID 環境変数が不正、または設定されていません。")
-    exit(1)
+# ▼▼▼【削除】CHANNEL_IDを.envから読み込む処理を削除 ▼▼▼
+# try:
+#     CHANNEL_ID = int(os.getenv('CHANNEL_ID'))
+# except (TypeError, ValueError):
+#     print("エラー: CHANNEL_ID 環境変数が不正、または設定されていません。")
+#     exit(1)
+# ▲▲▲【削除】ここまで ▲▲▲
 
 # Discord Intentsの設定
 intents = discord.Intents.default()
@@ -37,9 +38,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # データベースの初期化（テーブル作成など）
 DatabaseManager.initialize_db()
 
-# Controllerを初期化し、botインスタンスとCHANNEL_IDを渡す
+# ▼▼▼【修正】Controllerの初期化時にCHANNEL_IDを渡さないように変更 ▼▼▼
 # Controllerが全てのロジックとイベントハンドリングを担う
-GDBotController(bot, CHANNEL_ID)
+GDBotController(bot)
+# ▲▲▲【修正】ここまで ▲▲▲
 
 # ボットを起動
 bot.run(TOKEN)
