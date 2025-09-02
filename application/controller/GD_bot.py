@@ -304,8 +304,10 @@ class GDBotController:
 	# ... (on_interaction, handle_recruit_submission, handle_recruit_update 関数は変更なし) ...
 	async def on_interaction(self, it: discord.Interaction):
 		"""インタラクション（ボタンクリック、モーダル送信など）を処理"""
-		if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:", "delete:", "join_as_mentor", "join_as_member")):
-			return
+		# ▼▼▼【修正】誤った条件分岐を削除 ▼▼▼
+		# if it.type == discord.InteractionType.component and it.data.get("custom_id", "").startswith(("join:", "leave:", "edit:", "delete:", "join_as_mentor", "join_as_member")):
+		# 	return
+		# ▲▲▲【修正】ここまで ▲▲▲
 
 		if it.type.name != "component":
 			return
