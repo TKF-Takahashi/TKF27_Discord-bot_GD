@@ -91,7 +91,7 @@ class Gd_admin extends CI_Controller {
 			$admin_role_id = $this->input->post('admin_role_id');
 			$this->recruit_admin_model->set_setting('admin_role_id', $admin_role_id);
 
-			// 【追加】チャンネルIDを保存
+			// チャンネルIDを保存
 			$channel_id = $this->input->post('channel_id');
 			$this->recruit_admin_model->set_setting('channel_id', $channel_id);
 
@@ -99,17 +99,16 @@ class Gd_admin extends CI_Controller {
 			redirect('gd_admin/settings');
 		}
 		
+		// ▼▼▼【修正】DBから取得した値を直接ビューに渡すように変更 ▼▼▼
 		// メンターロールIDを取得
-		$mentor_setting = $this->recruit_admin_model->get_setting('mentor_role_id');
-		$data['mentor_role_id'] = $mentor_setting ? $mentor_setting['value'] : '';
+		$data['mentor_role_id'] = $this->recruit_admin_model->get_setting('mentor_role_id');
 
 		// 管理者ロールIDを取得
-		$admin_setting = $this->recruit_admin_model->get_setting('admin_role_id');
-		$data['admin_role_id'] = $admin_setting ? $admin_setting['value'] : '';
+		$data['admin_role_id'] = $this->recruit_admin_model->get_setting('admin_role_id');
 
-		// 【追加】チャンネルIDを取得
-		$channel_setting = $this->recruit_admin_model->get_setting('channel_id');
-		$data['channel_id'] = $channel_setting ? $channel_setting['value'] : '';
+		// チャンネルIDを取得
+		$data['channel_id'] = $this->recruit_admin_model->get_setting('channel_id');
+		// ▲▲▲【修正】ここまで ▲▲▲
 
 		$data['title'] = '設定';
 		$this->load->view('templates/header', $data);
@@ -153,7 +152,7 @@ class Gd_admin extends CI_Controller {
 		}
 		$this->output->set_content_type('application/json')->set_output(json_encode($users_data));
 	}
-    
+	
 	public function backup()
 	{
 		$data['title'] = 'バックアップ';
