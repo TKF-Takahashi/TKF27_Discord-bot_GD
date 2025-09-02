@@ -87,9 +87,13 @@ class Gd_admin extends CI_Controller {
 			$mentor_role_id = $this->input->post('mentor_role_id');
 			$this->recruit_admin_model->set_setting('mentor_role_id', $mentor_role_id);
 			
-			// 【追加】管理者ロールIDを保存
+			// 管理者ロールIDを保存
 			$admin_role_id = $this->input->post('admin_role_id');
 			$this->recruit_admin_model->set_setting('admin_role_id', $admin_role_id);
+
+			// 【追加】チャンネルIDを保存
+			$channel_id = $this->input->post('channel_id');
+			$this->recruit_admin_model->set_setting('channel_id', $channel_id);
 
 			$this->session->set_flashdata('success', '設定が保存されました。');
 			redirect('gd_admin/settings');
@@ -99,9 +103,13 @@ class Gd_admin extends CI_Controller {
 		$mentor_setting = $this->recruit_admin_model->get_setting('mentor_role_id');
 		$data['mentor_role_id'] = $mentor_setting ? $mentor_setting['value'] : '';
 
-		// 【追加】管理者ロールIDを取得
+		// 管理者ロールIDを取得
 		$admin_setting = $this->recruit_admin_model->get_setting('admin_role_id');
 		$data['admin_role_id'] = $admin_setting ? $admin_setting['value'] : '';
+
+		// 【追加】チャンネルIDを取得
+		$channel_setting = $this->recruit_admin_model->get_setting('channel_id');
+		$data['channel_id'] = $channel_setting ? $channel_setting['value'] : '';
 
 		$data['title'] = '設定';
 		$this->load->view('templates/header', $data);
